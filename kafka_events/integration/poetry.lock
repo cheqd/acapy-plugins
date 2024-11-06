@@ -372,6 +372,9 @@ python-versions = "^3.7"
 files = []
 develop = false
 
+[package.dependencies]
+httpx = {version = "^0.15.4", optional = true}
+
 [package.extras]
 client = ["httpx (>=0.15.4,<0.16.0)"]
 server = ["aries-staticagent @ git+https://github.com/dbluhm/aries-staticagent-python@880c1b6a6b2f8deca36437ed2e733b4728225142", "fastapi (>=0.67.0,<0.68.0)"]
@@ -875,4 +878,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "46220a969a92a0aca368e1d51381e513db2460dd77d1bde452afa3cf7be06b64"
+content-hash = "bd99d65b3ed5a79ed520f84191d2f0b07392495b6eea19f4e2c8eb566ac481da"

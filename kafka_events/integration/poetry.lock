@@ -372,9 +372,6 @@ python-versions = "^3.7"
 files = []
 develop = false
 
-[package.dependencies]
-httpx = {version = "^0.15.4", optional = true}
-
 [package.extras]
 client = ["httpx (>=0.15.4,<0.16.0)"]
 server = ["aries-staticagent @ git+https://github.com/dbluhm/aries-staticagent-python@880c1b6a6b2f8deca36437ed2e733b4728225142", "fastapi (>=0.67.0,<0.68.0)"]

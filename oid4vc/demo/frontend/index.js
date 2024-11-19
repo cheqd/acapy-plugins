@@ -268,69 +268,83 @@ async function issue_sdjwt_credential(req, res) {
 
 
   // Create credential schema
-  const createCredentialSupportedUrl = `${API_BASE_URL}/oid4vci/credential-supported/create/sd-jwt`;
+  const createCredentialSupportedUrl = `${API_BASE_URL}/oid4vci/credential-supported/create`;
   const createCredentialSupportedOptions = {
     method: "POST",
     headers: commonHeaders,
     body: JSON.stringify({
       format: "vc+sd-jwt",
       id: "IDCard",
-      cryptographic_binding_methods_supported: ["jwk"],
-      display: [
-        {
-          "name": "ID Card",
-          "locale": "en-US",
-          "background_color": "#12107c",
-          "text_color": "#FFFFFF"
-        }
-      ],
-      vct: "ExampleIDCard",
-      "claims": {
-        "given_name": {
-          "mandatory": true,
-          "value_type": "string",
+      format_data: {
+        cryptographic_binding_methods_supported: ["jwk"],
+        display: [
+          {
+            "name": "ID Card",
+            "locale": "en-US",
+            "background_color": "#12107c",
+            "text_color": "#FFFFFF"
+          }
+        ],
+        vct: "ExampleIDCard",
+        "claims": {
+          "given_name": {
+            "mandatory": true,
+            "value_type": "string",
+          },
+          "family_name": {
+            "mandatory": true,
+            "value_type": "string",
+          },
+          "something_nested": {
+            "key1": {
+              "key2": {
+                "key3": {
+                  "mandatory": true,
+                  "value_type": "string",
+                },
+              },
+            },
+          },
+          "age_equal_or_over": {
+            "12": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+            "14": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+            "16": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+            "18": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+            "21": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+            "65": {
+              "mandatory": true,
+              "value_type": "boolean",
+            },
+          }
         },
-        "family_name": {
-          "mandatory": true,
-          "value_type": "string",
-        },
-        "age_equal_or_over": {
-          "12": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-          "14": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-          "16": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-          "18": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-          "21": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-          "65": {
-            "mandatory": true,
-            "value_type": "boolean",
-          },
-        }
       },
-      sd_list: [
-        "/given_name",
-        "/family_name",
-        "/age_equal_or_over/12",
-        "/age_equal_or_over/14",
-        "/age_equal_or_over/16",
-        "/age_equal_or_over/18",
-        "/age_equal_or_over/21",
-        "/age_equal_or_over/65"
-      ]
+      vc_additional_data: {
+        sd_list: [
+          "/given_name",
+          "/family_name",
+          "/age_equal_or_over/12",
+          "/age_equal_or_over/14",
+          "/age_equal_or_over/16",
+          "/age_equal_or_over/18",
+          "/age_equal_or_over/21",
+          "/age_equal_or_over/65"
+        ]
+      }
     }),
   };
 
@@ -373,6 +387,7 @@ async function issue_sdjwt_credential(req, res) {
     credential_subject: {
       given_name: firstName,
       family_name: lastName,
+      something_nested: {key1: {key2: {key3: "something nested"}}},
       source_document_type: "id_card",
       age_equal_or_over: {
         "12": age >= 12,

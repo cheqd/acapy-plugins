@@ -24,8 +24,10 @@ from oid4vc.cred_processor import (
     PresVerifier,
     VerifyResult,
 )
+from oid4vc.config import Config
 from oid4vc.jwt import jwt_sign, jwt_verify
 from oid4vc.models.exchange import OID4VCIExchangeRecord
+from oid4vc.models.presentation import OID4VPPresentation
 from oid4vc.models.supported_cred import SupportedCredential
 from oid4vc.pop_result import PopResult
 
@@ -72,7 +74,7 @@ class SdJwtCredIssueProcessor(Issuer, CredVerifier, PresVerifier):
         assert supported.format_data
         assert supported.vc_additional_data
 
-        sd_list = supported.vc_additional_data.get("sd_list", [])
+        sd_list = supported.vc_additional_data.get("sd_list") or []
         assert isinstance(sd_list, list)
 
         if body.get("vct") != supported.format_data.get("vct"):
@@ -118,13 +120,15 @@ class SdJwtCredIssueProcessor(Issuer, CredVerifier, PresVerifier):
         except SDJWTError as error:
             raise CredProcessorError("Could not sign SD-JWT VC") from error
 
-    def validate_credential_subject(self, supported: SupportedCredential, subject: dict):
+    def validate_credential_subject(
+        self, supported: SupportedCredential, subject: dict
+    ):
         """Validate the credential subject."""
         vc_additional = supported.vc_additional_data
         assert vc_additional
         assert supported.format_data
         claims_metadata = supported.format_data.get("claims")
-        sd_list = vc_additional.get("sd_list", [])
+        sd_list = vc_additional.get("sd_list") or []
 
         # TODO this will only enforce mandatory fields that are selectively disclosable
         # We should validate that disclosed claims that are mandatory are also present
@@ -165,7 +169,7 @@ class SdJwtCredIssueProcessor(Issuer, CredVerifier, PresVerifier):
         if not vc_additional:
             raise ValueError("SD-JWT VC needs vc_additional_data")
 
-        sd_list = vc_additional.get("sd_list", [])
+        sd_list = vc_additional.get("sd_list") or []
 
         bad_claims = []
         for sd in sd_list:
@@ -198,15 +202,26 @@ class SdJwtCredIssueProcessor(Issuer, CredVerifier, PresVerifier):
             raise ValueError(f"Invalid JSON pointer(s): {bad_pointer}")
 
     async def verify_presentation(
-        self, profile: Profile, presentation: Any
+        self,
+        profile: Profile,
+        presentation: Any,
+        presentation_record: OID4VPPresentation,
     ) -> VerifyResult:
         """Verify signature over credential or presentation."""
+        context: AdminRequestContext = profile.context
+        config = Config.from_settings(context.settings)
 
-        result = await sd_jwt_verify(profile, presentation)
+        result = await sd_jwt_verify(
+            profile, presentation, config.endpoint, presentation_record.nonce
+        )
         # TODO: This is a little hacky
         return VerifyResult(result.verified, presentation)
 
-    async def verify_credential(self, profile: Profile, credential: Any) -> VerifyResult:
+    async def verify_credential(
+        self,
+        profile: Profile,
+        credential: Any,
+    ) -> VerifyResult:
         """Verify signature over credential."""
         # TODO: Can we optimize this? since we end up doing this twice in a row
 

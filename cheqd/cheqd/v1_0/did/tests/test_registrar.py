@@ -5,52 +5,11 @@ from yarl import URL
 from ..registrar import CheqdDIDRegistrar
 
 
-@pytest.fixture
-def common_params():
-    return {
-        "registrar_url": "http://localhost:3000/1.0/",
-        "network": "testnet",
-        "public_key_hex": "abc123",
-    }
-
-
-@pytest.fixture
-def mock_did_document_url(common_params):
-    return URL(f"{common_params["registrar_url"]}did-document").with_query(
-        {
-            "verificationMethod": "Ed25519VerificationKey2020",
-            "methodSpecificIdAlgo": "uuid",
-            "network": common_params["network"],
-            "publicKeyHex": common_params["public_key_hex"],
-        }
-    )
-
-
-@pytest.fixture
-def mock_did_document_response(common_params):
-    did = "did:cheqd:testnet:123"
-    return {
-        "id": did,
-        "controller": [did],
-        "verificationMethod": [
-            {
-                "id": f"{did}#key-1",
-                "type": "Ed25519VerificationKey2020",
-                "controller": did,
-                "publicKeyHex": common_params["public_key_hex"],
-            }
-        ],
-        "authentication": [f"{did}#key-1"],
-    }
-
-
 @pytest.mark.asyncio
-async def test_generate_did_doc(
-    common_params,
-    mock_did_document_response,
-    mock_did_document_url,
-):
+async def test_generate_did_doc(common_params, mock_did_document_url):
     # Arrange
+    mock_did_document_response = {"MOCK_KEY": "MOCK_VALUE"}
+
     with aioresponses() as mocked:
         registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
         mocked.get(mock_did_document_url, status=200, payload=mock_did_document_response)
@@ -61,18 +20,21 @@ async def test_generate_did_doc(
         )
 
         # Assert
-        expected_did = "did:cheqd:testnet:123"
         assert did_doc is not None
-        assert did_doc["id"] == expected_did
-        assert (
-            did_doc["verificationMethod"][0]["publicKeyHex"]
-            == common_params["public_key_hex"]
-        )
-        assert did_doc["authentication"] == [f"{expected_did}#key-1"]
+        assert did_doc["MOCK_KEY"] == "MOCK_VALUE"
+
+        expected_params = {
+            "methodSpecificIdAlgo": "uuid",
+            "network": common_params["network"],
+            "publicKeyHex": common_params["public_key_hex"],
+            "verificationMethod": "Ed25519VerificationKey2020",
+        }
+        request_call = mocked.requests[("GET", mock_did_document_url)][0]
+        assert request_call.kwargs["params"] == expected_params
 
 
 @pytest.mark.asyncio
-async def test_generate_did_doc_unhappy_path(common_params, mock_did_document_url):
+async def test_generate_did_doc_unhappy(common_params, mock_did_document_url):
     # Arrange
     with aioresponses() as mocked:
         mocked.get(mock_did_document_url, status=404)
@@ -86,3 +48,25 @@ async def test_generate_did_doc_unhappy_path(common_params, mock_did_document_ur
 
         # Assert
         assert "404" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_create(common_params):
+    # Arrange
+    create_url = common_params["registrar_url"] + "create"
+    create_options = {"MOCK_KEY": "MOCK_VALUE"}
+    mock_response = {"MOCK_KEY": "MOCK_VALUE"}
+
+    with aioresponses() as mocked:
+        mocked.post(create_url, status=201, payload=mock_response)
+        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+
+        # Act
+        response = await registrar.create(create_options)
+
+        # Assert
+        assert response is not None
+        assert response["MOCK_KEY"] == "MOCK_VALUE"
+
+        request_call = mocked.requests[("POST", URL(create_url))][0]
+        assert request_call.kwargs["json"] == create_options

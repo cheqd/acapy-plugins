@@ -28,17 +28,19 @@ def mock_did_document_url(common_params):
 
 @pytest.fixture
 def mock_did_document_response(common_params):
+    did = "did:cheqd:testnet:123"
     return {
-        "id": "did:cheqd:testnet:123",
+        "id": did,
+        "controller": [did],
         "verificationMethod": [
             {
-                "id": "#key-1",
+                "id": f"{did}#key-1",
                 "type": "Ed25519VerificationKey2020",
-                "controller": "did:cheqd:testnet:123",
+                "controller": did,
                 "publicKeyHex": common_params["public_key_hex"],
             }
         ],
-        "authentication": ["#key-1"],
+        "authentication": [f"{did}#key-1"],
     }
 
 
@@ -48,21 +50,39 @@ async def test_generate_did_doc(
     mock_did_document_response,
     mock_did_document_url,
 ):
-    # Mock the response for the HTTP call
+    # Arrange
     with aioresponses() as mocked:
+        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
         mocked.get(mock_did_document_url, status=200, payload=mock_did_document_response)
 
-        # Create instance of the registrar
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
-
-        # Call the method and assert the results
+        # Act
         did_doc = await registrar.generate_did_doc(
             common_params["network"], common_params["public_key_hex"]
         )
+
+        # Assert
+        expected_did = "did:cheqd:testnet:123"
         assert did_doc is not None
-        assert did_doc["id"] == "did:cheqd:testnet:123"
+        assert did_doc["id"] == expected_did
         assert (
             did_doc["verificationMethod"][0]["publicKeyHex"]
             == common_params["public_key_hex"]
         )
-        assert did_doc["authentication"] == ["#key-1"]
+        assert did_doc["authentication"] == [f"{expected_did}#key-1"]
+
+
+@pytest.mark.asyncio
+async def test_generate_did_doc_unhappy_path(common_params, mock_did_document_url):
+    # Arrange
+    with aioresponses() as mocked:
+        mocked.get(mock_did_document_url, status=404)
+        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+
+        # Act
+        with pytest.raises(Exception) as excinfo:
+            await registrar.generate_did_doc(
+                common_params["network"], common_params["public_key_hex"]
+            )
+
+        # Assert
+        assert "404" in str(excinfo.value)

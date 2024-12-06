@@ -21,3 +21,13 @@ def mock_did_document_url(common_params):
             "verificationMethod": "Ed25519VerificationKey2020",
         }
     )
+
+
+@pytest.fixture
+def mock_options():
+    return {"MOCK_KEY": "MOCK_VALUE"}
+
+
+@pytest.fixture
+def mock_response():
+    return {"MOCK_KEY": "MOCK_VALUE"}

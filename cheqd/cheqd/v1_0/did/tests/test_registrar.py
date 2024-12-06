@@ -7,16 +7,17 @@ from ..registrar import CheqdDIDRegistrar
 
 
 @pytest.mark.asyncio
-async def test_generate_did_doc(common_params, mock_did_document_url, mock_response):
+async def test_generate_did_doc(registrar_url, mock_did_document_url, mock_response):
     # Arrange
+    network = "testnet"
+    public_key_hex = "abc123"
+
     with aioresponses() as mocked:
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
         mocked.get(mock_did_document_url, status=200, payload=mock_response)
 
         # Act
-        did_doc = await registrar.generate_did_doc(
-            common_params["network"], common_params["public_key_hex"]
-        )
+        did_doc = await registrar.generate_did_doc(network, public_key_hex)
 
         # Assert
         assert did_doc is not None
@@ -24,8 +25,8 @@ async def test_generate_did_doc(common_params, mock_did_document_url, mock_respo
 
         expected_params = {
             "methodSpecificIdAlgo": "uuid",
-            "network": common_params["network"],
-            "publicKeyHex": common_params["public_key_hex"],
+            "network": network,
+            "publicKeyHex": public_key_hex,
             "verificationMethod": "Ed25519VerificationKey2020",
         }
         request_call = mocked.requests[("GET", mock_did_document_url)][0]
@@ -33,30 +34,31 @@ async def test_generate_did_doc(common_params, mock_did_document_url, mock_respo
 
 
 @pytest.mark.asyncio
-async def test_generate_did_doc_unhappy(common_params, mock_did_document_url):
+async def test_generate_did_doc_unhappy(registrar_url, mock_did_document_url):
     # Arrange
+    network = "testnet"
+    public_key_hex = "abc123"
+
     with aioresponses() as mocked:
         mocked.get(mock_did_document_url, status=404)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         with pytest.raises(Exception) as excinfo:
-            await registrar.generate_did_doc(
-                common_params["network"], common_params["public_key_hex"]
-            )
+            await registrar.generate_did_doc(network, public_key_hex)
 
         # Assert
         assert "404" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
-async def test_create(common_params, mock_options, mock_response):
+async def test_create(registrar_url, mock_options, mock_response):
     # Arrange
-    create_url = common_params["registrar_url"] + "create"
+    create_url = registrar_url + "create"
 
     with aioresponses() as mocked:
         mocked.post(create_url, status=201, payload=mock_response)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         response = await registrar.create(mock_options)
@@ -70,13 +72,13 @@ async def test_create(common_params, mock_options, mock_response):
 
 
 @pytest.mark.asyncio
-async def test_update(common_params, mock_options, mock_response):
+async def test_update(registrar_url, mock_options, mock_response):
     # Arrange
-    update_url = common_params["registrar_url"] + "update"
+    update_url = registrar_url + "update"
 
     with aioresponses() as mocked:
         mocked.post(update_url, status=200, payload=mock_response)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         response = await registrar.update(mock_options)
@@ -90,13 +92,13 @@ async def test_update(common_params, mock_options, mock_response):
 
 
 @pytest.mark.asyncio
-async def test_deactivate(common_params, mock_options, mock_response):
+async def test_deactivate(registrar_url, mock_options, mock_response):
     # Arrange
-    deactivate_url = common_params["registrar_url"] + "deactivate"
+    deactivate_url = registrar_url + "deactivate"
 
     with aioresponses() as mocked:
         mocked.post(deactivate_url, status=200, payload=mock_response)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         response = await registrar.deactivate(mock_options)
@@ -111,14 +113,14 @@ async def test_deactivate(common_params, mock_options, mock_response):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", [200, 201])
-async def test_create_resource(common_params, status, mock_options, mock_response):
+async def test_create_resource(registrar_url, status, mock_options, mock_response):
     # Arrange
     did = "did:cheqd:testnet:123"
-    create_resource_url = common_params["registrar_url"] + did + "/create-resource"
+    create_resource_url = registrar_url + did + "/create-resource"
 
     with aioresponses() as mocked:
         mocked.post(create_resource_url, status=status, payload=mock_response)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         response = await registrar.create_resource(did, mock_options)
@@ -132,14 +134,14 @@ async def test_create_resource(common_params, status, mock_options, mock_respons
 
 
 @pytest.mark.asyncio
-async def test_create_resource_unhappy(common_params, mock_options):
+async def test_create_resource_unhappy(registrar_url, mock_options):
     # Arrange
     did = "did:cheqd:testnet:123"
-    create_resource_url = common_params["registrar_url"] + did + "/create-resource"
+    create_resource_url = registrar_url + did + "/create-resource"
 
     with aioresponses() as mocked:
         mocked.post(create_resource_url, status=404)
-        registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+        registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
         # Act
         with pytest.raises(Exception) as excinfo:
@@ -150,10 +152,10 @@ async def test_create_resource_unhappy(common_params, mock_options):
 
 
 @pytest.mark.asyncio
-async def test_update_resource(common_params, mock_options):
+async def test_update_resource(registrar_url, mock_options):
     # Arrange
     did = "did:cheqd:testnet:123"
-    registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+    registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
     # Act
     with pytest.raises(NotImplementedError) as excinfo:
@@ -164,10 +166,10 @@ async def test_update_resource(common_params, mock_options):
 
 
 @pytest.mark.asyncio
-async def test_deactivate_resource(common_params, mock_options):
+async def test_deactivate_resource(registrar_url, mock_options):
     # Arrange
     did = "did:cheqd:testnet:123"
-    registrar = CheqdDIDRegistrar(registrar_url=common_params["registrar_url"])
+    registrar = CheqdDIDRegistrar(registrar_url=registrar_url)
 
     # Act
     with pytest.raises(NotImplementedError) as excinfo:

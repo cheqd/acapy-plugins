@@ -13,7 +13,7 @@ def common_params():
 
 @pytest.fixture
 def mock_did_document_url(common_params):
-    return URL(f"{common_params["registrar_url"]}did-document").with_query(
+    return URL(common_params["registrar_url"] + "did-document").with_query(
         {
             "methodSpecificIdAlgo": "uuid",
             "network": common_params["network"],

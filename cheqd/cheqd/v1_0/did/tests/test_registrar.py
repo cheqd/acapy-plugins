@@ -187,4 +187,4 @@ async def test_deactivate_resource(common_params):
         await registrar.deactivate_resource(did, deactivate_options)
 
     # Assert
-    assert str(excinfo.value) == "This method has not been implemented yet."
+    assert str(excinfo.value) == "This method will not be implemented for did:cheqd."

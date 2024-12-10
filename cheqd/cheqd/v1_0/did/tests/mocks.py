@@ -41,6 +41,24 @@ registrar_responses_network_fail = [
     },
 ]
 
+registrar_responses_not_finished = [
+    {
+        "jobId": "MOCK_ID",
+        "didState": {
+            "state": "action",
+            "signingRequest": [{"kid": "MOCK_KID", "serializedPayload": "MOCK"}],
+        },
+    },
+    {
+        "jobId": "MOCK_ID",
+        "didState": {
+            "state": "error",
+            "description": "Not finished",
+            "reason": "Not finished",
+        },
+    },
+]
+
 registrar_update_responses = [
     {
         "jobId": "MOCK_ID",

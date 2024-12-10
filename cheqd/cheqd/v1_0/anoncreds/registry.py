@@ -269,7 +269,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         anoncreds_revocation_registry_definition = RevRegDef(
             issuer_id=did,
             cred_def_id=revocation_registry_definition["credDefId"],
-            type=revocation_registry_definition["type"],
+            type=revocation_registry_definition["revocDefType"],
             tag=revocation_registry_definition["tag"],
             value=RevRegDefValue.deserialize(revocation_registry_definition["value"]),
         )
@@ -296,13 +296,13 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         resource_name = f"{cred_def_res}-{revocation_registry_definition.tag}"
 
         did = revocation_registry_definition.issuer_id
-        resource_type = "anonCredsRevRegDef"
+        resource_type = "anonCredsRevocRegDef"
         rev_reg_def = {
             "name": resource_name,
             "type": resource_type,
             "data": dict_to_b64(
                 {
-                    "type": revocation_registry_definition.type,
+                    "revocDefType": revocation_registry_definition.type,
                     "tag": revocation_registry_definition.tag,
                     "value": revocation_registry_definition.value.serialize(),
                     "credDefId": revocation_registry_definition.cred_def_id,

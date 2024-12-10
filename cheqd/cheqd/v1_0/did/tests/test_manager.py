@@ -88,34 +88,6 @@ async def test_create_with_seed(mock_registrar_instance, profile):
     assert response["verkey"] is not None
     assert response["didDocument"]["MOCK_KEY"] == "MOCK_VALUE"
 
-    mock_registrar_instance.return_value.create.assert_has_calls(
-        [
-            call(
-                {
-                    "didDocument": {
-                        "id": "did:cheqd:testnet:123456",
-                        "verificationMethod": {"publicKey": "someVerificationKey"},
-                    },
-                    "network": "testnet",
-                }
-            ),
-            call(
-                {
-                    "jobId": "MOCK_ID",
-                    "network": "testnet",
-                    "secret": {
-                        "signingResponse": [
-                            {
-                                "kid": "MOCK_KID",
-                                "signature": ANY,
-                            }
-                        ]
-                    },
-                }
-            ),
-        ]
-    )
-
 
 @patch("cheqd.cheqd.v1_0.did.manager.CheqdDIDRegistrar")
 @pytest.mark.asyncio

@@ -30,7 +30,12 @@ def mock_request():
         "multitenant.base_wallet_routes": "/allowed-route",
     }
 
-    mock_request.json = AsyncMock(
+    return mock_request
+
+
+@pytest.fixture
+def mock_create_body():
+    return AsyncMock(
         return_value={
             "options": {
                 "network": "testnet",
@@ -39,7 +44,29 @@ def mock_request():
         }
     )
 
-    return mock_request
+
+@pytest.fixture
+def mock_update_body():
+    return AsyncMock(
+        return_value={
+            "did": "did:cheqd:testnet:123",
+            "didDocument": {
+                "MOCK_KEY": "MOCK_VALUE",
+            },
+            "options": {
+                "MOCK_OPTION_KEY": "MOCK_OPTION_VALUE",
+            },
+        }
+    )
+
+
+@pytest.fixture
+def mock_deactivate_body():
+    return AsyncMock(
+        return_value={
+            "did": "did:cheqd:testnet:123",
+        }
+    )
 
 
 @pytest.fixture
@@ -48,6 +75,12 @@ def mock_manager():
     mock_manager.create.return_value = {
         "did": "did:cheqd:testnet:123",
         "verkey": "MOCK_VERIFICATION_KEY",
+    }
+    mock_manager.update.return_value = {
+        "MOCK_KEY": "MOCK_VALUE",
+    }
+    mock_manager.deactivate.return_value = {
+        "MOCK_KEY": "MOCK_VALUE",
     }
 
     return mock_manager

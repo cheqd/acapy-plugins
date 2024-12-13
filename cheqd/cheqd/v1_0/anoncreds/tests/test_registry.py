@@ -91,96 +91,66 @@ async def test_split_schema_id():
     assert result == ("PART0", "PART2")
 
 
-async def test_get_schema():
-    # Arrange
+async def test_get_schema(mock_profile, mock_resolver):
     schema_id = "PART0/PART1/PART2"
-    profile = MagicMock()
-    mock_resolver = AsyncMock()
-    mock_resolver.resolve_resource.return_value = MagicMock()
-    mock_resolver.resolve_resource.return_value.resource = {
-        "attrNames": "MOCK_attrNames",
-        "name": "MOCK_name",
-        "version": "MOCK_version",
-    }
-    mock_resolver.resolve_resource.return_value.metadata = {
-        "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
-    }
 
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.CheqdDIDResolver", return_value=mock_resolver
     ):
         registry = DIDCheqdRegistry()
-        result = await registry.get_schema(profile=profile, schema_id=schema_id)
+        result = await registry.get_schema(profile=mock_profile, schema_id=schema_id)
 
         # Assert
         assert isinstance(result, GetSchemaResult)
         assert result.schema_id == schema_id
         assert result.schema.issuer_id == "PART0"
-        assert result.schema.attr_names == "MOCK_attrNames"
-        assert result.schema.name == "MOCK_name"
-        assert result.schema.version == "MOCK_version"
+        assert result.schema.attr_names == "MOCK_ATTR_NAMES"
+        assert result.schema.name == "MOCK_NAME"
+        assert result.schema.version == "MOCK_VERSION"
         assert result.schema_metadata == {"MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"}
         assert result.resolution_metadata == {}
         mock_resolver.resolve_resource.assert_called_once_with(schema_id)
 
 
-async def test_register_schema():
+async def test_register_schema(
+    mock_profile, mock_schema, mock_create_and_publish_resource
+):
     # Arrange
-    profile = MagicMock()
-    schema = MagicMock()
-    schema.issuer_id = "MOCK_issuer_id"
-    schema.name = "MOCK_name"
-    schema.version = "MOCK_version"
-    schema.attr_names = "MOCK_attrNames"
-
-    mock_create_and_publish_resource = {
-        "jobId": "MOCK_JOB_ID",
-        "resource": {"id": "MOCK_RESOURCE"},
-        "id": "MOCK_ID",
-    }
-
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry._create_and_publish_resource",
         return_value=mock_create_and_publish_resource,
     ) as mock:
+        # Act
         registry = DIDCheqdRegistry()
-        result = await registry.register_schema(profile=profile, schema=schema)
+        result = await registry.register_schema(profile=mock_profile, schema=mock_schema)
 
-        # Assert
         assert isinstance(result, SchemaResult)
         assert result.job_id == "MOCK_JOB_ID"
         assert result.schema_state.state == "finished"
-        assert result.schema_state.schema_id == "MOCK_issuer_id/resources/MOCK_RESOURCE"
-        assert result.schema_state.schema == schema
-        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE"
-        assert result.registration_metadata["resource_name"] == "MOCK_name"
+        assert (
+            result.schema_state.schema_id == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID"
+        )
+        assert result.schema_state.schema == mock_schema
+        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE_ID"
+        assert result.registration_metadata["resource_name"] == "MOCK_NAME"
         assert result.registration_metadata["resource_type"] == "anonCredsSchema"
 
         mock.assert_called_once_with(
-            profile,
+            mock_profile,
             "http://localhost:3000/1.0/",
             "http://localhost:8080/1.0/identifiers/",
-            "MOCK_issuer_id",
+            "MOCK_ISSUER_ID",
             {
-                "name": "MOCK_name",
+                "name": "MOCK_NAME",
                 "type": "anonCredsSchema",
-                "version": "MOCK_version",
+                "version": "MOCK_VERSION",
                 "data": ANY,
             },
         )
 
 
-async def test_register_schema_registration_error():
+async def test_register_schema_registration_error(mock_profile, mock_schema):
     # Arrange
-    profile = MagicMock()
-    schema = MagicMock()
-    schema.issuer_id = "MOCK_issuer_id"
-    schema.name = "MOCK_name"
-    schema.version = "MOCK_version"
-    schema.attr_names = "MOCK_attrNames"
-
     mock_create_and_publish_resource = AsyncMock()
     mock_create_and_publish_resource.side_effect = Exception("Error")
 
@@ -191,28 +161,16 @@ async def test_register_schema_registration_error():
     ):
         with pytest.raises(Exception) as e:
             registry = DIDCheqdRegistry()
-            await registry.register_schema(profile=profile, schema=schema)
+            await registry.register_schema(profile=mock_profile, schema=mock_schema)
 
         # Assert
         assert "Error" in str(e.value)
         assert isinstance(e.value, AnonCredsRegistrationError)
 
 
-async def test_get_credential_definition():
+async def test_get_credential_definition(mock_profile, mock_resolver):
     # Arrange
-    profile = MagicMock()
     credential_definition_id = "PART0/PART1/PART2"
-    mock_resolver = AsyncMock()
-    mock_resolver.resolve_resource.return_value = MagicMock()
-    mock_resolver.resolve_resource.return_value.resource = {
-        "schemaId": "MOCK_schemaId",
-        "type": "MOCK_type",
-        "tag": "MOCK_tag",
-        "value": {"MOCK_KEY": "MOCK_VALUE"},
-    }
-    mock_resolver.resolve_resource.return_value.metadata = {
-        "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
-    }
 
     # Act
     with patch(
@@ -223,52 +181,39 @@ async def test_get_credential_definition():
     ):
         registry = DIDCheqdRegistry()
         result = await registry.get_credential_definition(
-            profile, credential_definition_id
+            mock_profile, credential_definition_id
         )
 
         # Assert
         assert isinstance(result, GetCredDefResult)
         assert result.credential_definition_id == credential_definition_id
         assert result.credential_definition.issuer_id == "PART0"
-        assert result.credential_definition.schema_id == "MOCK_schemaId"
-        assert result.credential_definition.type == "MOCK_type"
-        assert result.credential_definition.tag == "MOCK_tag"
+        assert result.credential_definition.schema_id == "MOCK_SCHEMA_ID"
+        assert result.credential_definition.type == "MOCK_TYPE"
+        assert result.credential_definition.tag == "MOCK_TAG"
         assert result.credential_definition.value == {"MOCK_KEY": "MOCK_VALUE"}
         assert result.credential_definition_metadata == {
             "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
         }
         assert result.resolution_metadata == {}
+        mock_resolver.resolve_resource.assert_called_once_with(credential_definition_id)
 
 
-async def test_register_credential_definition():
+async def test_register_credential_definition(
+    mock_profile,
+    mock_schema,
+    mock_credential_definition,
+    mock_create_and_publish_resource,
+):
     # Arrange
-    profile = MagicMock()
-    schema = MagicMock()
-    schema.schema_value.name = "MOCK_NAME"
-    schema.schema_id = "MOCK_ID"
-    credential_definition = MagicMock()
-    credential_definition.issuer_id = "MOCK_ISSUER_ID"
-    credential_definition.tag = "MOCK_TAG"
-    credential_definition.type = "MOCK_TYPE"
-    credential_definition.value = MagicMock()
-    credential_definition.value.serialize.return_value = {
-        "MOCK_KEY": "MOCK_VALUE_SERIALIZED"
-    }
-
-    mock_create_and_publish_resource = {
-        "jobId": "MOCK_JOB_ID",
-        "resource": {"id": "MOCK_RESOURCE"},
-        "id": "MOCK_ID",
-    }
-
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry._create_and_publish_resource",
         return_value=mock_create_and_publish_resource,
     ) as mock:
+        # Act
         registry = DIDCheqdRegistry()
         result = await registry.register_credential_definition(
-            profile, schema, credential_definition
+            mock_profile, mock_schema, mock_credential_definition
         )
 
         # Assert
@@ -277,18 +222,18 @@ async def test_register_credential_definition():
         assert result.credential_definition_state.state == "finished"
         assert (
             result.credential_definition_state.credential_definition_id
-            == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE"
+            == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID"
         )
         assert (
             result.credential_definition_state.credential_definition
-            == credential_definition
+            == mock_credential_definition
         )
-        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE"
+        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE_ID"
         assert result.registration_metadata["resource_name"] == "MOCK_NAME-MOCK_TAG"
         assert result.registration_metadata["resource_type"] == "anonCredsCredDef"
 
         mock.assert_called_once_with(
-            profile,
+            mock_profile,
             "http://localhost:3000/1.0/",
             "http://localhost:8080/1.0/identifiers/",
             "MOCK_ISSUER_ID",
@@ -301,21 +246,9 @@ async def test_register_credential_definition():
         )
 
 
-async def test_get_revocation_registry_definition():
+async def test_get_revocation_registry_definition(mock_profile, mock_resolver):
     # Arrange
-    profile = MagicMock()
     revocation_registry_id = "PART0/PART1/PART2"
-    mock_resolver = AsyncMock()
-    mock_resolver.resolve_resource.return_value = MagicMock()
-    mock_resolver.resolve_resource.return_value.resource = {
-        "credDefId": "MOCK_credDefId",
-        "revocDefType": "MOCK_revocDefType",
-        "tag": "MOCK_tag",
-        "value": {"MOCK_KEY": "MOCK_VALUE"},
-    }
-    mock_resolver.resolve_resource.return_value.metadata = {
-        "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
-    }
 
     # Act
     with patch(
@@ -326,16 +259,16 @@ async def test_get_revocation_registry_definition():
     ):
         registry = DIDCheqdRegistry()
         result = await registry.get_revocation_registry_definition(
-            profile, revocation_registry_id
+            mock_profile, revocation_registry_id
         )
 
         # Assert
         assert isinstance(result, GetRevRegDefResult)
         assert result.revocation_registry_id == "PART0/PART1/PART2"
         assert result.revocation_registry.issuer_id == "PART0"
-        assert result.revocation_registry.cred_def_id == "MOCK_credDefId"
-        assert result.revocation_registry.type == "MOCK_revocDefType"
-        assert result.revocation_registry.tag == "MOCK_tag"
+        assert result.revocation_registry.cred_def_id == "MOCK_CRED_DEF_ID"
+        assert result.revocation_registry.type == "MOCK_REVOC_DEF_TYPE"
+        assert result.revocation_registry.tag == "MOCK_TAG"
         assert result.revocation_registry.value == {"MOCK_KEY": "MOCK_VALUE"}
         assert result.revocation_registry_metadata == {
             "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
@@ -344,37 +277,24 @@ async def test_get_revocation_registry_definition():
         mock_resolver.resolve_resource.assert_called_once_with("PART0/PART1/PART2")
 
 
-async def test_register_revocation_registry_definition():
+async def test_register_revocation_registry_definition(
+    mock_profile,
+    mock_rev_reg_def,
+    mock_get_credential_definition_result,
+    mock_create_and_publish_resource,
+):
     # Arrange
-    profile = MagicMock()
-    rev_reg_def = MagicMock()
-    rev_reg_def.cred_def_id = "MOCK_CRED_DEF_ID"
-    rev_reg_def.issuer_id = "MOCK_ISSUER_ID"
-    rev_reg_def.tag = "MOCK_TAG"
-    rev_reg_def.type = "MOCK_TYPE"
-    rev_reg_def.value.serialize.return_value = {"MOCK_KEY": "MOCK_VALUE"}
-
-    cred_def_result = MagicMock()
-    cred_def_result.credential_definition_metadata = {
-        "resourceName": "MOCK_RESOURCE_NAME"
-    }
-
-    mock_create_and_publish_resource = {
-        "jobId": "MOCK_JOB_ID",
-        "resource": {"id": "MOCK_RESOURCE"},
-    }
-
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry.get_credential_definition",
-        return_value=cred_def_result,
+        return_value=mock_get_credential_definition_result,
     ), patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry._create_and_publish_resource",
         return_value=mock_create_and_publish_resource,
     ) as mock:
+        # Act
         registry = DIDCheqdRegistry()
         result = await registry.register_revocation_registry_definition(
-            profile, rev_reg_def
+            mock_profile, mock_rev_reg_def
         )
 
         # Assert
@@ -383,19 +303,18 @@ async def test_register_revocation_registry_definition():
         assert result.revocation_registry_definition_state.state == "finished"
         assert (
             result.revocation_registry_definition_state.revocation_registry_definition_id
-            == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE"
+            == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID"
         )
         assert (
             result.revocation_registry_definition_state.revocation_registry_definition
-            == rev_reg_def
+            == mock_rev_reg_def
         )
-
-        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE"
+        assert result.registration_metadata["resource_id"] == "MOCK_RESOURCE_ID"
         assert result.registration_metadata["resource_name"] == "MOCK_TAG"
         assert result.registration_metadata["resource_type"] == "anonCredsRevocRegDef"
         assert result.revocation_registry_definition_metadata == {}
         mock.assert_called_once_with(
-            profile,
+            mock_profile,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE_NAME-MOCK_TAG",
@@ -406,35 +325,20 @@ async def test_register_revocation_registry_definition():
         )
 
 
-async def test_get_revocation_list():
+async def test_get_revocation_list(mock_profile, mock_resolver, mock_rev_reg_def):
     # Arrange
-    profile = MagicMock()
     revocation_registry_id = "PART0/PART1/PART2"
-    mock_resolver = AsyncMock()
-    mock_resolver.resolve_resource.return_value = MagicMock()
-    mock_resolver.resolve_resource.return_value.resource = {
-        "revocationList": [0, 1, 0],
-        "currentAccumulator": "MOCK_ACCUMULATOR",
-    }
-    mock_resolver.resolve_resource.return_value.metadata = {
-        "MOCK_METADATA_KEY": "MOCK_METADATA_VALUE"
-    }
-
-    mock_revocation_registry_definition = MagicMock()
-    mock_revocation_registry_definition.revocation_registry_metadata = {
-        "resourceName": "MOCK_RESOURCE"
-    }
 
     # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.CheqdDIDResolver", return_value=mock_resolver
     ), patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry.get_revocation_registry_definition",
-        AsyncMock(return_value=mock_revocation_registry_definition),
+        AsyncMock(return_value=mock_rev_reg_def),
     ):
         registry = DIDCheqdRegistry()
         result = await registry.get_revocation_list(
-            profile, revocation_registry_id, timestamp_to=int(time.time())
+            mock_profile, revocation_registry_id, timestamp_to=int(time.time())
         )
 
         # Assert
@@ -451,15 +355,9 @@ async def test_get_revocation_list():
         mock_resolver.resolve_resource.assert_called_once()
 
 
-async def test_get_schema_info_by_id():
+async def test_get_schema_info_by_id(mock_resolver):
     # Arrange
     schema_id = "PART0/PART1/PART2"
-    mock_resolver = AsyncMock()
-    mock_resolver.resolve_resource.return_value = MagicMock()
-    mock_resolver.resolve_resource.return_value.resource = {
-        "name": "MOCK_NAME",
-        "version": "MOCK_VERSION",
-    }
 
     # Act
     with patch(
@@ -476,50 +374,39 @@ async def test_get_schema_info_by_id():
         mock_resolver.resolve_resource.assert_called_once_with(schema_id)
 
 
-async def test_register_revocation_list():
+async def test_register_revocation_list(
+    mock_profile,
+    mock_rev_list,
+    mock_rev_reg_def,
+    mock_create_and_publish_resource,
+    mock_get_revocation_registry_definition,
+):
     # Arrange
-    profile = MagicMock()
-    rev_list = MagicMock()
-    rev_list.revocation_list = [0, 1, 0]
-    rev_list.current_accumulator = "MOCK_ACCUMULATOR"
-    rev_list.rev_reg_def_id = "MOCK_REV_REG_DEF_ID"
-
-    rev_reg_def = MagicMock()
-    rev_reg_def.issuer_id = "MOCK_ISSUER_ID"
-
-    mock_create_and_publish_resource = {
-        "jobId": "MOCK_JOB_ID",
-        "resource": {"id": "MOCK_RESOURCE_ID"},
-    }
-
-    mock_revocation_registry_definition = MagicMock()
-    mock_revocation_registry_definition.revocation_registry_metadata = {
-        "resourceName": "MOCK_RESOURCE"
-    }
-
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry.get_revocation_registry_definition",
-        AsyncMock(return_value=mock_revocation_registry_definition),
+        AsyncMock(return_value=mock_get_revocation_registry_definition),
     ) as mock1, patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry._create_and_publish_resource",
         return_value=mock_create_and_publish_resource,
     ) as mock2:
+        # Act
         registry = DIDCheqdRegistry()
-        result = await registry.register_revocation_list(profile, rev_reg_def, rev_list)
+        result = await registry.register_revocation_list(
+            mock_profile, mock_rev_reg_def, mock_rev_list
+        )
 
         # Assert
         assert isinstance(result, RevListResult)
         assert result.job_id == "MOCK_JOB_ID"
         assert result.revocation_list_state.state == "finished"
-        assert result.revocation_list_state.revocation_list == rev_list
+        assert result.revocation_list_state.revocation_list == mock_rev_list
         assert result.registration_metadata == {}
         assert result.revocation_list_metadata["resource_id"] == "MOCK_RESOURCE_ID"
         assert result.revocation_list_metadata["resource_name"] == "MOCK_RESOURCE"
         assert result.revocation_list_metadata["resource_type"] == "anonCredsStatusList"
-        mock1.assert_called_once_with(profile, "MOCK_REV_REG_DEF_ID")
+        mock1.assert_called_once_with(mock_profile, "MOCK_REV_REG_DEF_ID")
         mock2.assert_called_once_with(
-            profile,
+            mock_profile,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE",
@@ -530,52 +417,39 @@ async def test_register_revocation_list():
         )
 
 
-async def test_update_revocation_list():
+async def test_update_revocation_list(
+    mock_profile,
+    mock_rev_reg_def,
+    mock_rev_list,
+    mock_create_and_publish_resource,
+    mock_get_revocation_registry_definition,
+):
     # Arrange
-    profile = MagicMock()
-    curr_list = MagicMock()
-    curr_list.revocation_list = [0, 1, 0]
-    curr_list.current_accumulator = "MOCK_ACCUMULATOR"
-    curr_list.rev_reg_def_id = "MOCK_REV_REG_DEF_ID"
-
-    rev_reg_def = MagicMock()
-    rev_reg_def.issuer_id = "MOCK_ISSUER_ID"
-
-    mock_create_and_publish_resource = {
-        "jobId": "MOCK_JOB_ID",
-        "resource": {"id": "MOCK_RESOURCE_ID"},
-    }
-
-    mock_revocation_registry_definition = MagicMock()
-    mock_revocation_registry_definition.revocation_registry_metadata = {
-        "resourceName": "MOCK_RESOURCE"
-    }
-
-    # Act
     with patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry.get_revocation_registry_definition",
-        AsyncMock(return_value=mock_revocation_registry_definition),
+        AsyncMock(return_value=mock_get_revocation_registry_definition),
     ) as mock1, patch(
         "cheqd.cheqd.v1_0.anoncreds.registry.DIDCheqdRegistry._create_and_publish_resource",
         return_value=mock_create_and_publish_resource,
     ) as mock2:
+        # Act
         registry = DIDCheqdRegistry()
         result = await registry.update_revocation_list(
-            profile, rev_reg_def, None, curr_list, []
+            mock_profile, mock_rev_reg_def, None, mock_rev_list, []
         )
 
         # Assert
         assert isinstance(result, RevListResult)
         assert result.job_id == "MOCK_JOB_ID"
         assert result.revocation_list_state.state == "finished"
-        assert result.revocation_list_state.revocation_list == curr_list
+        assert result.revocation_list_state.revocation_list == mock_rev_list
         assert result.registration_metadata == {}
         assert result.revocation_list_metadata["resource_id"] == "MOCK_RESOURCE_ID"
         assert result.revocation_list_metadata["resource_name"] == "MOCK_RESOURCE"
         assert result.revocation_list_metadata["resource_type"] == "anonCredsStatusList"
-        mock1.assert_called_once_with(profile, "MOCK_REV_REG_DEF_ID")
+        mock1.assert_called_once_with(mock_profile, "MOCK_REV_REG_DEF_ID")
         mock2.assert_called_once_with(
-            profile,
+            mock_profile,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE",

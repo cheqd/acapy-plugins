@@ -1,6 +1,13 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from acapy_agent.cache.base import BaseCache
+from acapy_agent.cache.in_memory import InMemoryCache
+from acapy_agent.utils.testing import create_test_profile
+from acapy_agent.wallet.did_method import DIDMethods
+from acapy_agent.wallet.key_type import KeyTypes
+
+from ...did_method import CHEQD
 
 
 @pytest.fixture
@@ -109,3 +116,17 @@ def mock_rev_list():
     rev_list.rev_reg_def_id = "MOCK_REV_REG_DEF_ID"
 
     return rev_list
+
+
+@pytest.fixture
+async def mock_profile_for_manager():
+    did_methods = DIDMethods()
+    did_methods.register(CHEQD)
+    profile = await create_test_profile(
+        settings={"wallet.type": "askar-anoncreds"},
+    )
+    profile.context.injector.bind_instance(DIDMethods, did_methods)
+    profile.context.injector.bind_instance(KeyTypes, KeyTypes())
+    profile.context.injector.bind_instance(BaseCache, InMemoryCache())
+
+    return profile

@@ -1,5 +1,5 @@
 import time
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 from acapy_agent.anoncreds.base import (
@@ -19,6 +19,13 @@ from acapy_agent.anoncreds.models.schema import GetSchemaResult, SchemaResult
 from acapy_agent.anoncreds.models.schema_info import AnoncredsSchemaInfo
 
 from ....v1_0.validation import CHEQD_DID_VALIDATE
+from ...did.manager import CheqdDIDManager
+from ...did.tests.mocks import (
+    registrar_responses_network_fail,
+    registrar_responses_no_signing_request,
+    registrar_responses_not_finished,
+    setup_mock_registrar,
+)
 from ..registry import DIDCheqdRegistry
 
 TEST_CHEQD_DID = "did:cheqd:testnet:1686a962-6e82-46f3-bde7-e6711d63958c"
@@ -458,3 +465,131 @@ async def test_update_revocation_list(
                 "version": ANY,
             },
         )
+
+
+@patch("cheqd.cheqd.v1_0.did.manager.CheqdDIDRegistrar")
+@pytest.mark.asyncio
+async def test_create_and_publish_resource(
+    mock_registrar_instance, mock_profile_for_manager
+):
+    # Arrange
+    setup_mock_registrar(mock_registrar_instance.return_value)
+    did = "did:cheqd:testnet:123"
+
+    # Act
+    manager = CheqdDIDManager(mock_profile_for_manager)
+    await manager.create()
+
+    registry = DIDCheqdRegistry()
+    result = await registry._create_and_publish_resource(
+        mock_profile_for_manager, "MOCK_REGISTRAR_URL", "MOCK_RESOLVER_URL", did, {}
+    )
+
+    # Assert
+    assert result["state"] == "finished"
+    assert result["didDocument"] == {"MOCK_KEY": "MOCK_VALUE"}
+
+    mock_registrar_instance.return_value.create_resource.assert_has_calls(
+        [
+            call(did, {}),
+            call(
+                did,
+                {
+                    "jobId": "MOCK_ID",
+                    "secret": {
+                        "signingResponse": [
+                            {
+                                "kid": "MOCK_KID",
+                                "signature": ANY,
+                            }
+                        ]
+                    },
+                },
+            ),
+        ]
+    )
+
+
+@patch("cheqd.cheqd.v1_0.did.manager.CheqdDIDRegistrar")
+@pytest.mark.asyncio
+async def test_create_and_publish_resourcewith_signing_failure(
+    mock_registrar_instance,
+    mock_profile_for_manager,
+):
+    # Arrange
+    setup_mock_registrar(
+        mock_registrar_instance.return_value,
+        create_resource_responses=registrar_responses_no_signing_request,
+    )
+    did = "did:cheqd:testnet:123"
+
+    # Act
+    manager = CheqdDIDManager(mock_profile_for_manager)
+    await manager.create()
+
+    registry = DIDCheqdRegistry()
+
+    with pytest.raises(Exception) as e:
+        await registry._create_and_publish_resource(
+            mock_profile_for_manager, "MOCK_REGISTRAR_URL", "MOCK_RESOLVER_URL", did, {}
+        )
+
+    # Assert
+    assert isinstance(e.value, Exception)
+    assert str(e.value) == "No signing requests available for update."
+
+
+@patch("cheqd.cheqd.v1_0.did.manager.CheqdDIDRegistrar")
+@pytest.mark.asyncio
+async def test_create_with_network_failure(
+    mock_registrar_instance,
+    mock_profile_for_manager,
+):
+    # Arrange
+    setup_mock_registrar(
+        mock_registrar_instance.return_value,
+        create_resource_responses=registrar_responses_network_fail,
+    )
+    did = "did:cheqd:testnet:123"
+
+    # Act
+    manager = CheqdDIDManager(mock_profile_for_manager)
+    await manager.create()
+
+    registry = DIDCheqdRegistry()
+    with pytest.raises(Exception) as e:
+        await registry._create_and_publish_resource(
+            mock_profile_for_manager, "MOCK_REGISTRAR_URL", "MOCK_RESOLVER_URL", did, {}
+        )
+
+    # Assert
+    assert isinstance(e.value, AnonCredsRegistrationError)
+    assert str(e.value) == "Error publishing Resource Network failure"
+
+
+@patch("cheqd.cheqd.v1_0.did.manager.CheqdDIDRegistrar")
+@pytest.mark.asyncio
+async def test_create_not_finished(
+    mock_registrar_instance,
+    mock_profile_for_manager,
+):
+    # Arrange
+    setup_mock_registrar(
+        mock_registrar_instance.return_value,
+        create_resource_responses=registrar_responses_not_finished,
+    )
+    did = "did:cheqd:testnet:123"
+
+    # Act
+    manager = CheqdDIDManager(mock_profile_for_manager)
+    await manager.create()
+
+    registry = DIDCheqdRegistry()
+    with pytest.raises(Exception) as e:
+        await registry._create_and_publish_resource(
+            mock_profile_for_manager, "MOCK_REGISTRAR_URL", "MOCK_RESOLVER_URL", did, {}
+        )
+
+    # Assert
+    assert isinstance(e.value, AnonCredsRegistrationError)
+    assert str(e.value) == "Error publishing Resource Not finished"

@@ -7,17 +7,18 @@ authors = []
 [tool.poetry.dependencies]
 python = "^3.12"
 
-# Define ACA-Py as an optional/extra dependancy so it can be
+# Define ACA-Py as an optional/extra dependency so it can be
 # explicitly installed with the plugin if desired.
-acapy-agent = { version = "~1.1.0", optional = true }
+acapy-agent = { version = "~1.1.1", optional = true }
+
 
 [tool.poetry.extras]
 aca-py = ["acapy-agent"]
 
 [tool.poetry.dev-dependencies]
-ruff = "^0.7.3"
+ruff = "^0.8.3"
 pytest = "^8.3.3"
-pytest-asyncio = "^0.24.0"
+pytest-asyncio = "^0.25.0"
 pytest-cov = "^5.0.0"
 pytest-ruff = "^0.4.1"
 

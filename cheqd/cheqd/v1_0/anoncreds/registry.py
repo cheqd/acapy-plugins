@@ -102,13 +102,15 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         self.resolver = CheqdDIDResolver(resolver_url)
         print("Successfully registered DIDCheqdRegistry")
 
-    async def get_schema_info_by_schema_id(self, profile: Profile, schema_id: str) -> AnoncredsSchemaInfo:
-        """Get the schema info from the registry"""
+    async def get_schema_info_by_schema_id(
+        self, profile: Profile, schema_id: str
+    ) -> AnoncredsSchemaInfo:
+        """Get the schema info from the registry."""
         schema = self.get_schema(profile, schema_id)
         return {
             "issuer_id": schema.issuer_id,
             "name": schema.name,
-            "version": schema.version
+            "version": schema.version,
         }
 
     async def get_schema(self, _profile: Profile, schema_id: str) -> GetSchemaResult:
@@ -396,7 +398,9 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
             revocation_registry_metadata=metadata,
         )
 
-    async def get_schema_info_by_id(self, schema_id: str) -> AnoncredsSchemaInfo:
+    async def get_schema_info_by_id(
+        self, profile: Profile, schema_id: str
+    ) -> AnoncredsSchemaInfo:
         """Get a schema info from the registry."""
         resource_with_metadata = await self.resolver.resolve_resource(schema_id)
         schema = resource_with_metadata.resource

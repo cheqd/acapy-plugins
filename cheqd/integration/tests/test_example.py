@@ -20,6 +20,7 @@ from .helpers import (
     resolve_did,
     save_did,
     save_schema,
+    update_did,
 )
 
 ISSUER = getenv("ISSUER", "http://issuer:3001")
@@ -28,6 +29,7 @@ HOLDER = getenv("HOLDER", "http://holder:4001")
 
 @pytest.fixture(scope="session")
 async def shared_did():
+    """Fixture to create DID and store for reuse with tests."""
     issuer = Controller(base_url=ISSUER)
     did = load_did()
     if not did:
@@ -38,6 +40,7 @@ async def shared_did():
 
 @pytest.fixture(scope="session")
 async def shared_schema():
+    """Fixture to create Schema and store for reuse with tests."""
     issuer = Controller(base_url=ISSUER)
     did = load_did()
     schema_id = load_schema()
@@ -58,6 +61,15 @@ async def test_create_and_resolve_did(shared_did):
 
 
 @pytest.mark.asyncio
+async def test_update_did():
+    """Test DID update."""
+    did = load_did()
+    async with Controller(base_url=ISSUER) as issuer:
+        did_doc = await resolve_did(issuer, did)
+        await update_did(issuer, did, did_doc)
+
+
+@pytest.mark.asyncio
 async def test_create_schema_and_credential_definition(shared_schema):
     """Test schema and credential definition creation."""
     did = load_did()
@@ -73,7 +85,7 @@ async def test_create_schema_and_credential_definition(shared_schema):
 
 
 @pytest.mark.asyncio
-async def test_create_credential_definition_with_revocation(shared_schema):
+async def test_create_credential_definition_with_revocation():
     """Test schema and credential definition with revocation."""
     did = load_did()
     schema_id = load_schema()
@@ -133,7 +145,7 @@ async def test_issue_credential():
 
 @pytest.mark.asyncio
 async def test_issue_credential_with_revocation():
-    """Test credential issuance."""
+    """Test credential issuance with revocation."""
     did = load_did()
     schema_id = load_schema()
     async with Controller(base_url=ISSUER) as issuer, Controller(

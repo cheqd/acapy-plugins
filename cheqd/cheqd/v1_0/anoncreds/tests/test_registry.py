@@ -32,6 +32,8 @@ TEST_CHEQD_DID = "did:cheqd:testnet:1686a962-6e82-46f3-bde7-e6711d63958c"
 TEST_CHEQD_SCHEMA_ID = "did:cheqd:testnet:1686a962-6e82-46f3-bde7-e6711d63958c/resources/e788d345-dd0c-427a-a74b-27faf1e608cd"
 TEST_CHEQD_CRED_DEF_ID = "did:cheqd:testnet:1686a962-6e82-46f3-bde7-e6711d63958c/resources/02229804-b46a-4be9-a6f1-13869109c7ea"
 TEST_CHEQD_REV_REG_ENTRY = "did:cheqd:testnet:1686a962-6e82-46f3-bde7-e6711d63958c?resourceName=test&resourceType=anoncredsRevRegEntry"
+TEST_REGISTRAR_URL = "http://localhost:3000/1.0/"
+TEST_RESOLVER_URL = "http://localhost:8080/1.0/identifiers/"
 
 
 async def test_supported_did_regex():
@@ -105,7 +107,7 @@ async def test_get_schema(mock_profile, mock_resolver):
         "cheqd.cheqd.v1_0.anoncreds.registry.CheqdDIDResolver", return_value=mock_resolver
     ):
         registry = DIDCheqdRegistry()
-        result = await registry.get_schema(profile=mock_profile, schema_id=schema_id)
+        result = await registry.get_schema(_profile=mock_profile, schema_id=schema_id)
 
         # Assert
         assert isinstance(result, GetSchemaResult)
@@ -144,8 +146,8 @@ async def test_register_schema(
 
         mock.assert_called_once_with(
             mock_profile,
-            "http://localhost:3000/1.0/",
-            "http://localhost:8080/1.0/identifiers/",
+            TEST_REGISTRAR_URL,
+            TEST_RESOLVER_URL,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_NAME",
@@ -241,8 +243,8 @@ async def test_register_credential_definition(
 
         mock.assert_called_once_with(
             mock_profile,
-            "http://localhost:3000/1.0/",
-            "http://localhost:8080/1.0/identifiers/",
+            TEST_REGISTRAR_URL,
+            TEST_RESOLVER_URL,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_NAME-MOCK_TAG",
@@ -322,6 +324,8 @@ async def test_register_revocation_registry_definition(
         assert result.revocation_registry_definition_metadata == {}
         mock.assert_called_once_with(
             mock_profile,
+            TEST_REGISTRAR_URL,
+            TEST_RESOLVER_URL,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE_NAME-MOCK_TAG",
@@ -362,7 +366,7 @@ async def test_get_revocation_list(mock_profile, mock_resolver, mock_rev_reg_def
         mock_resolver.resolve_resource.assert_called_once()
 
 
-async def test_get_schema_info_by_id(mock_resolver):
+async def test_get_schema_info_by_id(mock_resolver, mock_profile):
     # Arrange
     schema_id = "PART0/PART1/PART2"
 
@@ -371,7 +375,7 @@ async def test_get_schema_info_by_id(mock_resolver):
         "cheqd.cheqd.v1_0.anoncreds.registry.CheqdDIDResolver", return_value=mock_resolver
     ):
         registry = DIDCheqdRegistry()
-        result = await registry.get_schema_info_by_id(schema_id)
+        result = await registry.get_schema_info_by_id(mock_profile, schema_id)
 
         # Assert
         assert isinstance(result, AnoncredsSchemaInfo)
@@ -414,6 +418,8 @@ async def test_register_revocation_list(
         mock1.assert_called_once_with(mock_profile, "MOCK_REV_REG_DEF_ID")
         mock2.assert_called_once_with(
             mock_profile,
+            TEST_REGISTRAR_URL,
+            TEST_RESOLVER_URL,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE",
@@ -457,6 +463,8 @@ async def test_update_revocation_list(
         mock1.assert_called_once_with(mock_profile, "MOCK_REV_REG_DEF_ID")
         mock2.assert_called_once_with(
             mock_profile,
+            TEST_REGISTRAR_URL,
+            TEST_RESOLVER_URL,
             "MOCK_ISSUER_ID",
             {
                 "name": "MOCK_RESOURCE",

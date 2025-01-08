@@ -21,6 +21,12 @@ class VerificationMethods(Enum):
 class TVerificationKeyPrefix(Enum):
     Placeholder = "prefix"
 
+class CheqdAnoncredsResourceType(Enum):
+    schema = "anonCredsSchema"
+    credentialDefinition = "anonCredsCredDef"
+    revocationRegistryDefinition = "anonCredsRevocRegDef"
+    revocationStatusList = "anonCredsStatusList"
+
 TVerificationKey = str
 IVerificationKeys = Dict[str, Union[str, TVerificationKey]]
 VerificationMethod = Dict[str, Union[str, Dict[str, str]]]
@@ -33,31 +39,28 @@ def bytes_to_base64(data: bytes) -> str:
     return urlsafe_b64encode(data).decode('utf-8')
 
 def create_verification_keys(
-    public_key: str,
+    public_key_b64: str,
     network: CheqdNetwork = CheqdNetwork.Testnet,
     algo: MethodSpecificIdAlgo = MethodSpecificIdAlgo.Uuid,
     key: TVerificationKey = 'key-1',
 ) -> IVerificationKeys:
-    if len(public_key) != 43:
-        public_key = bytes_to_base64(bytes.fromhex(public_key))
-
     if algo == MethodSpecificIdAlgo.Base58:
-        method_specific_id = multibase.encode("base58btc", base64_to_bytes(public_key)).decode()
-        did_url = f"did:cheqd:{network.value}:{multibase.encode('base58btc', sha256(base64_to_bytes(public_key)).digest()[:16]).decode()[1:]}"
+        method_specific_id = multibase.encode("base58btc", base64_to_bytes(public_key_b64)).decode()
+        did_url = f"did:cheqd:{network.value}:{multibase.encode('base58btc', sha256(base64_to_bytes(public_key_b64)).digest()[:16]).decode()[1:]}"
         return {
             "methodSpecificId": method_specific_id,
             "didUrl": did_url,
             "keyId": f"{did_url}#{key}",
-            "publicKey": public_key,
+            "publicKey": public_key_b64,
         }
     elif algo == MethodSpecificIdAlgo.Uuid:
-        method_specific_id = multibase.encode("base58btc", base64_to_bytes(public_key)).decode()
+        method_specific_id = multibase.encode("base58btc", base64_to_bytes(public_key_b64)).decode()
         did_url = f"did:cheqd:{network.value}:{uuid.uuid4()}"
         return {
             "methodSpecificId": method_specific_id,
             "didUrl": did_url,
             "keyId": f"{did_url}#{key}",
-            "publicKey": public_key,
+            "publicKey": public_key_b64,
         }
 
 def create_did_verification_method(

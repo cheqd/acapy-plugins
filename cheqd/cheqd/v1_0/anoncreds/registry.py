@@ -42,7 +42,9 @@ from acapy_agent.wallet.base import BaseWallet
 from acapy_agent.wallet.error import WalletError
 from acapy_agent.wallet.jwt import dict_to_b64
 
-from ..did.base import ResourceCreateRequestOptions, Secret, SigningResponse, SubmitSignatureOptions
+from ..did.base import ResourceCreateRequestOptions, Secret, SigningResponse, SubmitSignatureOptions, \
+    ResourceUpdateRequestOptions
+from ..did.helpers import CheqdAnoncredsResourceType
 from ..did.manager import CheqdDIDManager
 from ..did.registrar import CheqdDIDRegistrar
 from ..resolver.resolver import CheqdDIDResolver
@@ -141,7 +143,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         _options: Optional[dict] = None,
     ) -> SchemaResult:
         """Register a schema on the registry."""
-        resource_type = "anonCredsSchema"
+        resource_type = CheqdAnoncredsResourceType.schema
         resource_name = f"{schema.name}"
         resource_version = schema.version
 
@@ -222,8 +224,8 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         _options: Optional[dict] = None,
     ) -> CredDefResult:
         """Register a credential definition on the registry."""
-        resource_type = "anonCredsCredDef"
-        resource_name = f"{schema.schema_value.name}-{credential_definition.tag}"
+        resource_type = CheqdAnoncredsResourceType.credentialDefinition
+        resource_name = f"{schema.schema_value.name}-{credential_definition.tag}" # TODO: max chars are 31, on exceeding this should be hashed
 
         cred_def = ResourceCreateRequestOptions(
             name=resource_name,
@@ -308,10 +310,10 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
             profile, revocation_registry_definition.cred_def_id
         )
         cred_def_res = cred_def_result.credential_definition_metadata.get("resourceName")
-        resource_name = f"{cred_def_res}-{revocation_registry_definition.tag}"
+        resource_name = f"{cred_def_res}-{revocation_registry_definition.tag}" # TODO: max chars are 31, on exceeding this should be hashed
 
         did = revocation_registry_definition.issuer_id
-        resource_type = "anonCredsRevocRegDef"
+        resource_type = CheqdAnoncredsResourceType.revocationRegistryDefinition
         rev_reg_def = ResourceCreateRequestOptions(
             name=resource_name,
             type=resource_type,
@@ -336,7 +338,6 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         job_id = resource_state.get("jobId")
         resource = resource_state.get("resource")
         resource_id = resource.get("id")
-        resource_name = revocation_registry_definition.tag
 
         return RevRegDefResult(
             job_id=job_id,
@@ -372,7 +373,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         )
         (did, resource_id) = self.split_schema_id(revocation_registry_id)
 
-        resource_type = "anonCredsStatusList"
+        resource_type = CheqdAnoncredsResourceType.revocationStatusList
         epoch_time = timestamp_to or int(time.time())
         dt_object = datetime.fromtimestamp(epoch_time, tz=timezone.utc)
 
@@ -424,7 +425,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         resource_name = revocation_registry_definition.revocation_registry_metadata.get(
             "resourceName"
         )
-        resource_type = "anonCredsStatusList"
+        resource_type = CheqdAnoncredsResourceType.revocationStatusList
         rev_status_list = ResourceCreateRequestOptions(
             name=resource_name,
             type=resource_type,
@@ -480,7 +481,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
         resource_name = revocation_registry_definition.revocation_registry_metadata.get(
             "resourceName"
         )
-        resource_type = "anonCredsStatusList"
+        resource_type = CheqdAnoncredsResourceType.revocationStatusList
         rev_status_list = ResourceCreateRequestOptions(
             name=resource_name,
             type=resource_type,
@@ -494,7 +495,7 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
             version=str(uuid4()),
         )
 
-        resource_state = await self._create_and_publish_resource(
+        resource_state = await self._update_and_publish_resource(
             profile,
             self.registrar.DID_REGISTRAR_BASE_URL,
             self.resolver.DID_RESOLVER_BASE_URL,
@@ -550,6 +551,56 @@ class DIDCheqdRegistry(BaseAnonCredsResolver, BaseAnonCredsRegistrar):
 
                     # publish resource
                     publish_resource_res = await cheqd_manager.registrar.create_resource(
+                        did,
+                        SubmitSignatureOptions(
+                            jobId=job_id,
+                            secret=Secret(signingResponse=signed_responses),
+                        )
+                    )
+                    resource_state = publish_resource_res.get("resourceState")
+                    if resource_state.get("state") != "finished":
+                        raise AnonCredsRegistrationError(
+                            f"Error publishing Resource {resource_state.get("reason")}"
+                        )
+                    return resource_state
+                else:
+                    raise AnonCredsRegistrationError(
+                        f"Error publishing Resource {resource_state.get("reason")}"
+                    )
+            except Exception as err:
+                raise AnonCredsRegistrationError(f"{err}")
+
+    @staticmethod
+    async def _update_and_publish_resource(
+        profile: Profile, registrar_url: str, resolver_url: str, did: str, options: ResourceUpdateRequestOptions
+    ) -> dict:
+        """Update, Sign and Publish a Resource."""
+        cheqd_manager = CheqdDIDManager(profile, registrar_url, resolver_url)
+        async with profile.session() as session:
+            wallet = session.inject_or(BaseWallet)
+            if not wallet:
+                raise WalletError("No wallet available")
+            try:
+                # request update resource operation
+                create_request_res = await cheqd_manager.registrar.update_resource(
+                    did, options
+                )
+
+                job_id: str = create_request_res.get("jobId")
+                resource_state = create_request_res.get("resourceState")
+
+                LOGGER.debug("JOBID %s", job_id)
+                if resource_state.get("state") == "action":
+                    signing_requests = resource_state.get("signingRequest")
+                    if not signing_requests:
+                        raise Exception("No signing requests available for update.")
+                    # sign all requests
+                    signed_responses = await CheqdDIDManager.sign_requests(
+                        wallet, signing_requests
+                    )
+
+                    # publish resource
+                    publish_resource_res = await cheqd_manager.registrar.update_resource(
                         did,
                         SubmitSignatureOptions(
                             jobId=job_id,

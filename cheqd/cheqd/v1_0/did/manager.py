@@ -13,7 +13,8 @@ from acapy_agent.wallet.key_type import ED25519
 from acapy_agent.wallet.util import b58_to_bytes
 from aiohttp import web
 
-from .helpers import create_verification_keys, create_did_verification_method, VerificationMethods, create_did_payload
+from .helpers import create_verification_keys, create_did_verification_method, VerificationMethods, create_did_payload, \
+    bytes_to_base64
 from ..did.base import (
     BaseDIDManager,
     CheqdDIDManagerError,
@@ -71,12 +72,11 @@ class CheqdDIDManager(BaseDIDManager):
 
                 key = await wallet.create_key(key_type, seed)
                 verkey = key.verkey
-                verkey_bytes = b58_to_bytes(verkey)
-                public_key_hex = verkey_bytes.hex()
+                public_key_b64 = bytes_to_base64(verkey)
                 verification_method = options.get("verification_method") or VerificationMethods.Ed255192020
 
                 # generate payload
-                verification_keys = create_verification_keys(public_key_hex, network)
+                verification_keys = create_verification_keys(public_key_b64, network)
                 verification_methods = create_did_verification_method([verification_method], [verification_keys])
                 did_document = create_did_payload(verification_methods, [verification_keys])
                 did: str = did_document.get("id")
@@ -95,9 +95,10 @@ class CheqdDIDManager(BaseDIDManager):
                             "No signing requests available for create."
                         )
 
-                    # Note: This assumes did create operation supports only one did
+                    # Note: This assumes did create operation supports only one key
                     kid: str = signing_requests[0].get("kid")
                     await wallet.assign_kid_to_key(verkey, kid)
+
                     # sign all requests
                     signed_responses = await CheqdDIDManager.sign_requests(
                         wallet, signing_requests

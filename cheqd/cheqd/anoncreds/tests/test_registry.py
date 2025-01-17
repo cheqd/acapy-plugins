@@ -140,7 +140,7 @@ async def test_register_schema(
         result = await registry.register_schema(profile=mock_profile, schema=mock_schema)
 
         assert isinstance(result, SchemaResult)
-        assert result.job_id == "MOCK_ID"
+
         assert result.schema_state.state == "finished"
         assert (
             result.schema_state.schema_id == "MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID"
@@ -248,7 +248,6 @@ async def test_register_credential_definition(
 
         # Assert
         assert isinstance(result, CredDefResult)
-        assert result.job_id == "MOCK_ID"
         assert result.credential_definition_state.state == "finished"
         assert (
             result.credential_definition_state.credential_definition_id
@@ -340,7 +339,7 @@ async def test_register_revocation_registry_definition(
 
         # Assert
         assert isinstance(result, RevRegDefResult)
-        assert result.job_id == "MOCK_ID"  # TODO: fix upstream
+
         assert result.revocation_registry_definition_state.state == "finished"
         assert (
             result.revocation_registry_definition_state.revocation_registry_definition_id
@@ -413,7 +412,7 @@ async def test_get_schema_info_by_id(mock_resolver, mock_profile):
         "cheqd.cheqd.anoncreds.registry.CheqdDIDResolver", return_value=mock_resolver
     ):
         registry = DIDCheqdRegistry()
-        result = await registry.get_schema_info_by_id(schema_id)
+        result = await registry.get_schema_info_by_id(mock_profile, schema_id)
 
         # Assert
         assert isinstance(result, AnoncredsSchemaInfo)

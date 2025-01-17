@@ -7,8 +7,8 @@ from acapy_agent.utils.testing import create_test_profile
 from acapy_agent.wallet.did_method import DIDMethods
 from acapy_agent.wallet.key_type import KeyTypes
 
-from ...did_method import CHEQD
 from ...did.base import ResourceCreateRequestOptions, ResourceUpdateRequestOptions
+from ...did_method import CHEQD
 from ..registry import PublishResourceResponse
 
 
@@ -57,8 +57,7 @@ def mock_schema():
 @pytest.fixture
 def mock_create_and_publish_resource():
     return PublishResourceResponse(
-        job_id="MOCK_ID",
-        did_url="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
+        didUrl="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
         content="MOCK_VALUE",
     )
 
@@ -66,8 +65,7 @@ def mock_create_and_publish_resource():
 @pytest.fixture
 def mock_update_and_publish_resource():
     return PublishResourceResponse(
-        job_id="MOCK_ID",
-        did_url="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
+        didUrl="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
         content="MOCK_VALUE",
     )
 

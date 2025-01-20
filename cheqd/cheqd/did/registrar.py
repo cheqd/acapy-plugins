@@ -1,8 +1,10 @@
 """DID Registrar for Cheqd."""
-
+import logging
 from aiohttp import ClientSession, web
+from pydantic import ValidationError
 
 from ..did.base import (
+    DidResponse,
     BaseDIDRegistrar,
     DidCreateRequestOptions,
     DidDeactivateRequestOptions,
@@ -11,7 +13,7 @@ from ..did.base import (
     ResourceUpdateRequestOptions,
     SubmitSignatureOptions,
 )
-
+LOGGER = logging.getLogger(__name__)
 
 class CheqdDIDRegistrar(BaseDIDRegistrar):
     """DID Registrar implementation for did:cheqd."""
@@ -26,7 +28,7 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
 
     async def create(
         self, options: DidCreateRequestOptions | SubmitSignatureOptions
-    ) -> dict | None:
+    ) -> DidResponse:
         """Create a DID Document."""
         async with ClientSession() as session:
             try:
@@ -35,19 +37,22 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                     json=options.model_dump(exclude_none=True),
                 ) as response:
                     if response.status == 200 or response.status == 201:
-                        return await response.json()
+                        res = await response.json()
+                        return DidResponse(**res)
                     elif response.status == 400:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
+                        error_res = DidResponse(**res)
+                        raise web.HTTPBadRequest(reason=error_res.didState.reason)
                     else:
                         raise web.HTTPInternalServerError()
+            except ValidationError:
+                raise web.HTTPInternalServerError(reason="cheqd: did-registrar: DID Create Response Format is invalid")
             except Exception:
                 raise
 
     async def update(
         self, options: DidUpdateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> DidResponse:
         """Update a DID Document."""
         async with ClientSession() as session:
             try:
@@ -56,19 +61,22 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                     json=options.model_dump(exclude_none=True),
                 ) as response:
                     if response.status == 200 or response.status == 201:
-                        return await response.json()
+                        res = await response.json()
+                        return DidResponse(**res)
                     elif response.status == 400:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
+                        error_res = DidResponse(**res)
+                        raise web.HTTPBadRequest(reason=error_res.didState.reason)
                     else:
                         raise web.HTTPInternalServerError()
+            except ValidationError:
+                raise web.HTTPInternalServerError(reason="cheqd: did-registrar: DID Update Response Format is invalid")
             except Exception:
                 raise
 
     async def deactivate(
         self, options: DidDeactivateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> DidResponse:
         """Deactivate a DID Document."""
         async with ClientSession() as session:
             try:
@@ -77,13 +85,14 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                     json=options.model_dump(exclude_none=True),
                 ) as response:
                     if response.status == 200 or response.status == 201:
-                        return await response.json()
+                        res = await response.json()
+                        return DidResponse(**res)
                     elif response.status == 400:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
-                    else:
-                        raise web.HTTPInternalServerError()
+                        error_res = DidResponse(**res)
+                        raise web.HTTPBadRequest(reason=error_res.didState.reason)
+            except ValidationError:
+                raise web.HTTPInternalServerError(reason="cheqd: did-registrar: DID Deactivate Response Format is invalid")
             except Exception:
                 raise
 

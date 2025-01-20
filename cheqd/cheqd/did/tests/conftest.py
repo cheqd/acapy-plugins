@@ -7,12 +7,12 @@ from acapy_agent.wallet.key_type import KeyTypes
 from yarl import URL
 
 from ...did_method import CHEQD
-from ..base import (
+from ...did.base import (
     DidCreateRequestOptions,
     DidDeactivateRequestOptions,
     DidUpdateRequestOptions,
     ResourceCreateRequestOptions,
-    ResourceUpdateRequestOptions,
+    ResourceUpdateRequestOptions, DidResponse, DidSuccessState, DIDDocumentSchema, VerificationMethodSchema
 )
 from ..registrar import CheqdDIDRegistrar
 
@@ -85,6 +85,34 @@ def mock_resource_update_options():
         did="MOCK_VALUE", content=["MOCK_VALUE"], name="MOCK_VALUE", type="MOCK_VALUE"
     )
 
+@pytest.fixture
+def mock_did_response():
+    return {
+      "jobId": "6d85bcd0-2ea3-4288-ab00-15afadd8a156",
+      "didState": {
+        "state": "finished",
+        "did": "string",
+        "didDocument": {
+          "id": "did:cheqd:testnet:ca9ff47c-0286-4614-a4be-8ffa83911e09",
+          "controller": [
+            "did:cheqd:testnet:ca9ff47c-0286-4614-a4be-8ffa83911e09"
+          ],
+          "verificationMethod": [
+            {
+              "id": "did:cheqd:testnet:ca9ff47c-0286-4614-a4be-8ffa83911e09#key-1",
+              "type": "Ed25519VerificationKey2020",
+              "controller": "did:cheqd:testnet:ca9ff47c-0286-4614-a4be-8ffa83911e09",
+              "publicKeyMultibase": "z6Mkt9Vg1a1Jbg5a1NkToUeWH23Z33TwGUua5MrqAYUz2AL3"
+            }
+          ],
+          "authentication": [
+            "did:cheqd:testnet:ca9ff47c-0286-4614-a4be-8ffa83911e09#key-1"
+          ]
+        }
+      },
+      "didRegistrationMetadata": {},
+      "didDocumentMetadata": {}
+    }
 
 @pytest.fixture
 def mock_response():

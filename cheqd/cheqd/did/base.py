@@ -63,8 +63,8 @@ class SigningRequest(DynamicSchema):
     """Signing Request."""
 
     kid: str
-    type: str
-    alg: str
+    type: Optional[str] = None
+    alg: Optional[str] = None
     serializedPayload: str
 
 
@@ -180,16 +180,17 @@ class DidActionState(DynamicSchema):
     state: Literal['action']
     did: str
     action: str
-    description: Optional[str]
+    description: Optional[str] = None
+    secret: Optional[dict] = {}
     signingRequest: List[SigningRequest]
 
 
 class DidErrorState(DynamicSchema):
     """Did Error State."""
-
+    did: Optional[str] = None
     state: str
     reason: str
-
+    secret: Optional[dict] = {}
 
 class DidResponse(DynamicSchema):
     """Did Create Response."""
@@ -204,8 +205,8 @@ class DidUrlSuccessState(DynamicSchema):
 
     state: str
     didUrl: str
-    content: str
-    secret: str
+    content: Union[str, dict]
+    secret: Optional[dict] = {}
     name: str
     type: str
     version: str
@@ -214,10 +215,10 @@ class DidUrlSuccessState(DynamicSchema):
 class DidUrlActionState(DynamicSchema):
     """Did Url Action State."""
 
-    state: str
+    state: Literal['action']
     didUrl: str
     action: str
-    description: Optional[str]
+    description: Optional[str] = None
     signingRequest: List[SigningRequest]
 
 
@@ -225,10 +226,10 @@ class DidUrlErrorState(DynamicSchema):
     """Did Url Error State."""
 
     state: str
-    didUrl: str
+    didUrl: Optional[str] = None
     reason: str
-    description: Optional[str]
-    secret: str
+    description: Optional[str] = None
+    secret: Optional[dict] = {}
 
 
 class ResourceResponse(DynamicSchema):

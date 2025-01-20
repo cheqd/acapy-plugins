@@ -277,6 +277,6 @@ class CheqdDIDManager(BaseDIDManager):
                 raise ex
         return {
             "did": did,
-            "did_document": publish_did_state.didDocument.dict(),
-            "did_document_metadata": metadata,
+            "didDocument": publish_did_state.didDocument.dict(),
+            "didDocumentMetadata": metadata,
         }

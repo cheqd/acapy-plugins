@@ -73,13 +73,13 @@ async def test_deactivate(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", [200, 201])
 async def test_create_resource(
-    registrar_url, registrar, status, mock_resource_create_options, mock_response
+    registrar_url, registrar, status, mock_resource_create_options, mock_resource_response
 ):
     # Arrange
     create_resource_url = registrar_url + "createResource"
 
     with aioresponses() as mocked:
-        mocked.post(create_resource_url, status=status, payload=mock_response)
+        mocked.post(create_resource_url, status=status, payload=mock_resource_response)
 
         # Act
         response = await registrar.create_resource(mock_resource_create_options)
@@ -115,12 +115,12 @@ async def test_create_resource_unhappy(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", [200])
 async def test_update_resource(
-    registrar_url, registrar, status, mock_resource_update_options, mock_response
+    registrar_url, registrar, status, mock_resource_update_options, mock_resource_response
 ):
     update_resource_url = registrar_url + "updateResource"
 
     with aioresponses() as mocked:
-        mocked.post(update_resource_url, status=status, payload=mock_response)
+        mocked.post(update_resource_url, status=status, payload=mock_resource_response)
 
         # Act
         response = await registrar.update_resource(mock_resource_update_options)

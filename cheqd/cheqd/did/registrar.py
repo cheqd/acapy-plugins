@@ -3,6 +3,7 @@ import logging
 from aiohttp import ClientSession, web
 from pydantic import ValidationError
 
+from .base import ResourceResponse
 from ..did.base import (
     DidResponse,
     BaseDIDRegistrar,
@@ -91,6 +92,8 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                         res = await response.json()
                         error_res = DidResponse(**res)
                         raise web.HTTPBadRequest(reason=error_res.didState.reason)
+                    else:
+                        raise web.HTTPInternalServerError()
             except ValidationError:
                 raise web.HTTPInternalServerError(reason="cheqd: did-registrar: DID Deactivate Response Format is invalid")
             except Exception:
@@ -98,7 +101,7 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
 
     async def create_resource(
         self, options: ResourceCreateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> ResourceResponse:
         """Create a DID Linked Resource."""
         async with ClientSession() as session:
             try:
@@ -107,7 +110,12 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                     json=options.model_dump(exclude_none=True),
                 ) as response:
                     if response.status == 200 or response.status == 201:
-                        return await response.json()
+                        res = await response.json()
+                        return ResourceResponse(**res)
+                    elif response.status == 400:
+                        res = await response.json()
+                        error_res = ResourceResponse(**res)
+                        raise web.HTTPBadRequest(reason=error_res.didUrlState.reason)
                     else:
                         raise web.HTTPInternalServerError()
             except Exception:
@@ -115,7 +123,7 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
 
     async def update_resource(
         self, options: ResourceUpdateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> ResourceResponse:
         """Update a DID Linked Resource."""
         async with ClientSession() as session:
             try:
@@ -124,7 +132,12 @@ class CheqdDIDRegistrar(BaseDIDRegistrar):
                     json=options.model_dump(exclude_none=True),
                 ) as response:
                     if response.status == 200 or response.status == 201:
-                        return await response.json()
+                        res = await response.json()
+                        return ResourceResponse(**res)
+                    elif response.status == 400:
+                        res = await response.json()
+                        error_res = ResourceResponse(**res)
+                        raise web.HTTPBadRequest(reason=error_res.didUrlState.reason)
                     else:
                         raise web.HTTPInternalServerError()
             except Exception:

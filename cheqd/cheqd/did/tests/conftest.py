@@ -12,7 +12,7 @@ from ...did.base import (
     DidDeactivateRequestOptions,
     DidUpdateRequestOptions,
     ResourceCreateRequestOptions,
-    ResourceUpdateRequestOptions, DidResponse, DidSuccessState, DIDDocumentSchema, VerificationMethodSchema
+    ResourceUpdateRequestOptions,
 )
 from ..registrar import CheqdDIDRegistrar
 
@@ -113,6 +113,27 @@ def mock_did_response():
       "didRegistrationMetadata": {},
       "didDocumentMetadata": {}
     }
+
+@pytest.fixture
+def mock_resource_response():
+    return {
+  "jobId": "6d85bcd0-2ea3-4288-ab00-15afadd8a156",
+  "didUrlState": {
+    "didUrl": "string",
+    "state": "finished",
+    "name": "name",
+    "type": "type",
+    "version": "version",
+    "secret": {
+      "seed": "72WGp7NgFR1Oqdi8zlt7jQQ434XR0cNQ"
+    },
+    "content": "string",
+  },
+  "didRegistrationMetadata": {
+  },
+  "contentMetadata": {
+  }
+}
 
 @pytest.fixture
 def mock_response():

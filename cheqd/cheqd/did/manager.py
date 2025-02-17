@@ -17,6 +17,7 @@ from .base import (
     DidUpdateRequestOptions,
     SubmitSignatureOptions,
     DIDDocumentSchema,
+    DidActionState,
 )
 from .helpers import (
     create_verification_keys,
@@ -35,7 +36,7 @@ from ..did.base import (
 )
 from ..did_method import CHEQD
 from ..resolver.resolver import CheqdDIDResolver
-from .registrar import CheqdDIDRegistrar
+from .registrar import DIDRegistrar
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ LOGGER = logging.getLogger(__name__)
 class CheqdDIDManager(BaseDIDManager):
     """DID manager implementation for did:cheqd."""
 
-    registrar: CheqdDIDRegistrar
+    registrar: DIDRegistrar
     resolver: CheqdDIDResolver
 
     def __init__(
@@ -54,7 +55,7 @@ class CheqdDIDManager(BaseDIDManager):
     ) -> None:
         """Initialize the Cheqd DID manager."""
         super().__init__(profile)
-        self.registrar = CheqdDIDRegistrar(registrar_url)
+        self.registrar = DIDRegistrar("cheqd", registrar_url)
         self.resolver = CheqdDIDResolver(resolver_url)
 
     async def create(
@@ -110,22 +111,23 @@ class CheqdDIDManager(BaseDIDManager):
                     )
                 )
 
-                job_id: str = create_request_res.get("jobId")
-                did_state = create_request_res.get("didState")
-                if did_state.get("state") == "action":
-                    signing_requests = did_state.get("signingRequest")
-                    if not signing_requests:
+                job_id = create_request_res.jobId
+                did_state = create_request_res.didState
+                if isinstance(did_state, DidActionState):
+                    if not did_state.signingRequest:
                         raise CheqdDIDManagerError(
                             "No signing requests available for create."
                         )
 
-                    # Note: This assumes did create operation supports only one key
-                    kid: str = signing_requests[0].get("kid")
+                    signing_request = next(iter(did_state.signingRequest.values()), None)
+
+                    # Note: This assumes the DID create operation supports only one key
+                    kid = signing_request.kid
                     await wallet.assign_kid_to_key(verkey, kid)
 
                     # sign all requests
                     signed_responses = await CheqdDIDManager.sign_requests(
-                        wallet, signing_requests
+                        wallet, did_state.signingRequest
                     )
                     # publish did
                     publish_did_res = await self.registrar.create(
@@ -139,14 +141,14 @@ class CheqdDIDManager(BaseDIDManager):
                             ),
                         )
                     )
-                    publish_did_state = publish_did_res.get("didState")
-                    if publish_did_state.get("state") != "finished":
+                    publish_did_state = publish_did_res.didState
+                    if publish_did_state.state != "finished":
                         raise CheqdDIDManagerError(
-                            f"Error registering DID {publish_did_state.get('reason')}"
+                            f"Error registering DID {publish_did_state.reason}"
                         )
                 else:
                     raise CheqdDIDManagerError(
-                        f"Error registering DID {did_state.get('reason')}"
+                        f"Error registering DID {did_state.reason}"
                     )
 
                 # create public did record
@@ -157,7 +159,7 @@ class CheqdDIDManager(BaseDIDManager):
         return {
             "did": did,
             "verkey": verkey,
-            "didDocument": publish_did_state.get("didDocument"),
+            "didDocument": publish_did_state.didDocument.dict(),
         }
 
     async def update(self, did: str, did_doc: dict, options: dict = None) -> dict:
@@ -185,11 +187,11 @@ class CheqdDIDManager(BaseDIDManager):
                     )
                 )
 
-                job_id: str = update_request_res.get("jobId")
-                did_state = update_request_res.get("didState")
+                job_id = update_request_res.jobId
+                did_state = update_request_res.didState
 
-                if did_state.get("state") == "action":
-                    signing_requests = did_state.get("signingRequest")
+                if isinstance(did_state, DidActionState):
+                    signing_requests = did_state.signingRequest
                     if not signing_requests:
                         raise Exception("No signing requests available for update.")
                     # sign all requests
@@ -203,22 +205,20 @@ class CheqdDIDManager(BaseDIDManager):
                             jobId=job_id, secret=Secret(signingResponse=signed_responses)
                         )
                     )
-                    publish_did_state = publish_did_res.get("didState")
+                    publish_did_state = publish_did_res.didState
 
-                    if publish_did_state.get("state") != "finished":
+                    if publish_did_state.state != "finished":
                         raise CheqdDIDManagerError(
                             f"Error publishing DID \
-                                update {publish_did_state.get('description')}"
+                                update {publish_did_state.reason}"
                         )
                 else:
-                    raise CheqdDIDManagerError(
-                        f"Error updating DID {did_state.get('reason')}"
-                    )
+                    raise CheqdDIDManagerError(f"Error updating DID {did_state.reason}")
             # TODO update new keys to wallet if necessary
             except Exception as ex:
                 raise ex
 
-        return {"did": did, "didDocument": publish_did_state.get("didDocument")}
+        return {"did": did, "didDocument": publish_did_state.didDocument.dict()}
 
     async def deactivate(self, did: str, options: dict = None) -> dict:
         """Deactivate a Cheqd DID."""
@@ -239,11 +239,11 @@ class CheqdDIDManager(BaseDIDManager):
                     DidDeactivateRequestOptions(did=did)
                 )
 
-                job_id: str = deactivate_request_res.get("jobId")
-                did_state = deactivate_request_res.get("didState")
+                job_id: str = deactivate_request_res.jobId
+                did_state = deactivate_request_res.didState
 
-                if did_state.get("state") == "action":
-                    signing_requests = did_state.get("signingRequest")
+                if isinstance(did_state, DidActionState):
+                    signing_requests = did_state.signingRequest
                     if not signing_requests:
                         raise WalletError("No signing requests available for update.")
                     # sign all requests
@@ -260,15 +260,15 @@ class CheqdDIDManager(BaseDIDManager):
                         )
                     )
 
-                    publish_did_state = publish_did_res.get("didState")
+                    publish_did_state = publish_did_res.didState
 
-                    if publish_did_state.get("state") != "finished":
+                    if publish_did_state.state != "finished":
                         raise WalletError(
                             f"Error publishing DID \
-                                deactivate {publish_did_state.get('description')}"
+                                deactivate {publish_did_state.reason}"
                         )
                 else:
-                    raise WalletError(f"Error deactivating DID {did_state.get('reason')}")
+                    raise WalletError(f"Error deactivating DID {did_state.reason}")
                 # update local did metadata
                 did_info = await wallet.get_local_did(did)
                 metadata = {**did_info.metadata, "deactivated": True}
@@ -277,6 +277,6 @@ class CheqdDIDManager(BaseDIDManager):
                 raise ex
         return {
             "did": did,
-            "did_document": publish_did_state.get("didDocument"),
-            "did_document_metadata": metadata,
+            "didDocument": publish_did_state.didDocument.dict(),
+            "didDocumentMetadata": metadata,
         }

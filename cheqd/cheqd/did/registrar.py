@@ -1,10 +1,11 @@
 """DID Registrar for Cheqd."""
 
 import logging
-
-from aiohttp import ClientSession, web
+from aiohttp import ClientSession
+from pydantic import ValidationError
 
 from ..did.base import (
+    DidResponse,
     BaseDIDRegistrar,
     DidCreateRequestOptions,
     DidDeactivateRequestOptions,
@@ -12,117 +13,171 @@ from ..did.base import (
     ResourceCreateRequestOptions,
     ResourceUpdateRequestOptions,
     SubmitSignatureOptions,
+    ResourceResponse,
+    DIDRegistrarError,
 )
 
 LOGGER = logging.getLogger(__name__)
 
 
-class CheqdDIDRegistrar(BaseDIDRegistrar):
-    """DID Registrar implementation for did:cheqd."""
+class DIDRegistrar(BaseDIDRegistrar):
+    """Universal DID Registrar implementation."""
 
-    DID_REGISTRAR_BASE_URL = "http://localhost:3000/1.0/"
+    DID_REGISTRAR_BASE_URL = "http://localhost:9080/1.0/"
 
-    def __init__(self, registrar_url: str = None) -> None:
+    def __init__(self, method: str, registrar_url: str = None) -> None:
         """Initialize the Cheqd Registrar."""
         super().__init__()
         if registrar_url:
             self.DID_REGISTRAR_BASE_URL = registrar_url
+        self.method = method
 
     async def create(
         self, options: DidCreateRequestOptions | SubmitSignatureOptions
-    ) -> dict | None:
+    ) -> DidResponse:
         """Create a DID Document."""
         async with ClientSession() as session:
             try:
                 async with session.post(
-                    self.DID_REGISTRAR_BASE_URL + "create",
+                    self.DID_REGISTRAR_BASE_URL + "create" + f"?method={self.method}",
                     json=options.model_dump(exclude_none=True),
                 ) as response:
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    elif response.status == 400:
+                    try:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
-                    else:
-                        raise web.HTTPInternalServerError()
+                    except Exception:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: create: Unable to parse JSON"
+                        )
+                    if not res:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: create: Response is None."
+                        )
+
+                    return DidResponse(**res)
+            except (ValidationError, AttributeError):
+                raise DIDRegistrarError(
+                    "cheqd: did-registrar: create: Response Format is invalid"
+                )
             except Exception:
                 raise
 
     async def update(
         self, options: DidUpdateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> DidResponse:
         """Update a DID Document."""
         async with ClientSession() as session:
             try:
                 async with session.post(
-                    self.DID_REGISTRAR_BASE_URL + "update",
+                    self.DID_REGISTRAR_BASE_URL + "update" + f"?method={self.method}",
                     json=options.model_dump(exclude_none=True),
                 ) as response:
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    elif response.status == 400:
+                    try:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
-                    else:
-                        raise web.HTTPInternalServerError()
+                    except Exception:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: update: Unable to parse JSON"
+                        )
+                    if not res:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: update: Response is None."
+                        )
+
+                    return DidResponse(**res)
+            except (ValidationError, AttributeError):
+                raise DIDRegistrarError(
+                    "cheqd: did-registrar: update: Response Format is invalid"
+                )
             except Exception:
                 raise
 
     async def deactivate(
         self, options: DidDeactivateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> DidResponse:
         """Deactivate a DID Document."""
         async with ClientSession() as session:
             try:
                 async with session.post(
-                    self.DID_REGISTRAR_BASE_URL + "deactivate",
+                    self.DID_REGISTRAR_BASE_URL + "deactivate" + f"?method={self.method}",
                     json=options.model_dump(exclude_none=True),
                 ) as response:
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    elif response.status == 400:
+                    try:
                         res = await response.json()
-                        did_state = res.get("didState")
-                        raise web.HTTPBadRequest(reason=did_state.get("reason"))
-                    else:
-                        raise web.HTTPInternalServerError()
+                    except Exception:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: deactivate: Unable to parse JSON"
+                        )
+                    if not res:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: create_resource: Response is None."
+                        )
+
+                    return DidResponse(**res)
+            except (ValidationError, AttributeError):
+                raise DIDRegistrarError(
+                    "cheqd: did-registrar: deactivate: Response Format is invalid"
+                )
             except Exception:
                 raise
 
     async def create_resource(
         self, options: ResourceCreateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> ResourceResponse:
         """Create a DID Linked Resource."""
         async with ClientSession() as session:
             try:
                 async with session.post(
-                    self.DID_REGISTRAR_BASE_URL + "createResource",
+                    self.DID_REGISTRAR_BASE_URL
+                    + "createResource"
+                    + f"?method={self.method}",
                     json=options.model_dump(exclude_none=True),
                 ) as response:
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    else:
-                        raise web.HTTPInternalServerError()
+                    try:
+                        res = await response.json()
+                    except Exception:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: create_resource: Unable to parse JSON"
+                        )
+                    if not res:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: create_resource: Response is None."
+                        )
+
+                    return ResourceResponse(**res)
+            except (ValidationError, AttributeError):
+                raise DIDRegistrarError(
+                    "cheqd: did-registrar: create_resource: Response Format is invalid"
+                )
             except Exception:
                 raise
 
     async def update_resource(
         self, options: ResourceUpdateRequestOptions | SubmitSignatureOptions
-    ) -> dict:
+    ) -> ResourceResponse:
         """Update a DID Linked Resource."""
         async with ClientSession() as session:
             try:
                 async with session.post(
-                    self.DID_REGISTRAR_BASE_URL + "updateResource",
+                    self.DID_REGISTRAR_BASE_URL
+                    + "updateResource"
+                    + f"?method={self.method}",
                     json=options.model_dump(exclude_none=True),
                 ) as response:
-                    LOGGER.debug(options.model_dump(exclude_none=True))
-                    if response.status == 200 or response.status == 201:
-                        return await response.json()
-                    else:
-                        raise web.HTTPInternalServerError()
+                    try:
+                        res = await response.json()
+                    except Exception:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: update_resource: Unable to parse JSON"
+                        )
+                    if not res:
+                        raise DIDRegistrarError(
+                            "cheqd: did-registrar: update_resource: Response is None."
+                        )
+
+                    return ResourceResponse(**res)
+            except (ValidationError, AttributeError):
+                raise DIDRegistrarError(
+                    "cheqd: did-registrar: update_resource: Response Format is invalid"
+                )
             except Exception:
                 raise
 

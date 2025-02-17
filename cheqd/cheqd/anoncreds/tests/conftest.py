@@ -57,7 +57,7 @@ def mock_schema():
 @pytest.fixture
 def mock_create_and_publish_resource():
     return PublishResourceResponse(
-        didUrl="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
+        did_url="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
         content="MOCK_VALUE",
     )
 
@@ -65,7 +65,7 @@ def mock_create_and_publish_resource():
 @pytest.fixture
 def mock_update_and_publish_resource():
     return PublishResourceResponse(
-        didUrl="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
+        did_url="MOCK_ISSUER_ID/resources/MOCK_RESOURCE_ID",
         content="MOCK_VALUE",
     )
 
@@ -151,5 +151,5 @@ def mock_resource_create_options():
 @pytest.fixture
 def mock_resource_update_options():
     return ResourceUpdateRequestOptions(
-        did="MOCK_VALUE", content="MOCK_VALUE", name="MOCK_VALUE", type="MOCK_VALUE"
+        did="MOCK_VALUE", content=["MOCK_VALUE"], name="MOCK_VALUE", type="MOCK_VALUE"
     )

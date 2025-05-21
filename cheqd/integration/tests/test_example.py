@@ -97,6 +97,15 @@ async def test_update_schema():
 
 
 @pytest.mark.asyncio
+async def test_update_schema():
+    """Test Update Schema."""
+    did = load_did()
+
+    async with Controller(base_url=ISSUER) as issuer:
+        await update_schema(issuer, did)
+
+
+@pytest.mark.asyncio
 async def test_create_credential_definition_with_revocation():
     """Test schema and credential definition with revocation."""
     did = load_did()

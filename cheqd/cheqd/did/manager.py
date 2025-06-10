@@ -1,8 +1,10 @@
 """DID Manager for Cheqd."""
 
 import logging
+from typing import Optional
 
 from acapy_agent.core.profile import Profile
+from acapy_agent.ledger.base import EndpointType
 from acapy_agent.resolver.base import DIDNotFound
 from acapy_agent.wallet.base import BaseWallet
 from acapy_agent.wallet.crypto import validate_seed
@@ -13,29 +15,29 @@ from acapy_agent.wallet.key_type import ED25519
 from acapy_agent.wallet.util import b58_to_bytes, bytes_to_b64
 from aiohttp import web
 
-from .base import (
-    DidUpdateRequestOptions,
-    SubmitSignatureOptions,
-    DIDDocumentSchema,
-    DidActionState,
-)
-from .helpers import (
-    create_verification_keys,
-    create_did_verification_method,
-    VerificationMethods,
-    create_did_payload,
-    CheqdNetwork,
-)
 from ..did.base import (
     BaseDIDManager,
     CheqdDIDManagerError,
-    Secret,
-    DidDeactivateRequestOptions,
     DidCreateRequestOptions,
+    DidDeactivateRequestOptions,
     Options,
+    Secret,
 )
 from ..did_method import CHEQD
 from ..resolver.resolver import CheqdDIDResolver
+from .base import (
+    DidActionState,
+    DIDDocumentSchema,
+    DidUpdateRequestOptions,
+    SubmitSignatureOptions,
+)
+from .helpers import (
+    CheqdNetwork,
+    VerificationMethods,
+    create_did_payload,
+    create_did_verification_method,
+    create_verification_keys,
+)
 from .registrar import DIDRegistrar
 
 LOGGER = logging.getLogger(__name__)
@@ -159,7 +161,7 @@ class CheqdDIDManager(BaseDIDManager):
         return {
             "did": did,
             "verkey": verkey,
-            "didDocument": publish_did_state.didDocument.dict(),
+            "didDocument": publish_did_state.didDocument.model_dump(),
         }
 
     async def update(self, did: str, did_doc: dict, options: dict = None) -> dict:
@@ -176,7 +178,17 @@ class CheqdDIDManager(BaseDIDManager):
                 if not curr_did_doc or curr_did_doc.get("deactivated"):
                     raise DIDNotFound("DID is already deactivated or not found.")
 
-                # request deactivate did
+                # Normalize serviceEndpoint to a list if it's a string
+                # and get didcomm service endpoint
+                endpoint = ""
+                services = did_doc.get("service", [])
+                for service in services:
+                    if service.get("type") == "did-communication":
+                        endpoint = service.get("serviceEndpoint")
+                    # This is a workaround for Cheqd registrar, remove when fixed
+                    # in Cheqd registrar
+                    if isinstance(service.get("serviceEndpoint"), str):
+                        service["serviceEndpoint"] = [service["serviceEndpoint"]]
                 # TODO If registrar supports other operation,
                 #       take didDocumentOperation as input
                 update_request_res = await self.registrar.update(
@@ -218,7 +230,7 @@ class CheqdDIDManager(BaseDIDManager):
             except Exception as ex:
                 raise ex
 
-        return {"did": did, "didDocument": publish_did_state.didDocument.dict()}
+        return {"did": did, "didDocument": publish_did_state.didDocument.model_dump()}
 
     async def deactivate(self, did: str, options: dict = None) -> dict:
         """Deactivate a Cheqd DID."""
@@ -277,6 +289,84 @@ class CheqdDIDManager(BaseDIDManager):
                 raise ex
         return {
             "did": did,
-            "didDocument": publish_did_state.didDocument.dict(),
+            "didDocument": publish_did_state.didDocument.model_dump(),
+            "didDocumentMetadata": metadata,
+        }
+
+    async def set_did_endpoint(
+        self,
+        did: str,
+        endpoint: str,
+        endpoint_type: Optional[EndpointType] = None,
+    ) -> dict:
+        """Update the endpoint for a DID in the wallet.
+
+        Args:
+            did (str): The DID for which to set the endpoint.
+            endpoint (str): The endpoint to set. Use None to clear the endpoint.
+            endpoint_type (str, optional): The type of the endpoint/service.
+                Only endpoint_type 'endpoint' affects the local wallet.
+
+        """
+        async with self.profile.session() as session:
+            try:
+                wallet = session.inject(BaseWallet)
+                if not wallet:
+                    raise web.HTTPForbidden(reason="No wallet available")
+                did_info = await wallet.get_local_did(did)
+                if not did_info:
+                    raise web.HTTPNotFound(reason="DID not found in wallet")
+                if did_info.metadata.get("deactivated"):
+                    raise web.HTTPBadRequest(reason="DID is deactivated")
+                if did_info.metadata.get("posted"):
+                    # Resolve the DID and ensure it is not deactivated and is valid
+                    curr_did_doc = await self.resolver.resolve(self.profile, did)
+                    if not curr_did_doc or curr_did_doc.get("deactivated"):
+                        raise DIDNotFound("DID is already deactivated or not found.")
+
+                    # Prepare the updated DID document with the new service endpoint
+                    updated_did_doc = curr_did_doc.copy()
+
+                    # Update or add the service endpoint
+                    services = updated_did_doc.get("service", [])
+                    endpoint_updated = False
+                    service_type = endpoint_type
+                    if endpoint_type == EndpointType.ENDPOINT:
+                        service_type = "did-communication"
+                    for service in services:
+                        if service.get("type") == service_type:
+                            service["serviceEndpoint"] = endpoint
+                            # remove below line after cheqd registrar update
+                            service["recipientKeys"] = [curr_did_doc["authentication"][0]]
+                            endpoint_updated = True
+                            break
+
+                    if not endpoint_updated:
+                        # Add a new service if no existing one was found
+                        service_id = f"{did}#{endpoint_type}"
+                        new_service = {
+                            "id": service_id,
+                            "type": service_type,
+                            "serviceEndpoint": endpoint,
+                            "recipientKeys": [
+                                curr_did_doc["authentication"][0]
+                            ],  # You may need to add appropriate keys
+                        }
+                        services.append(new_service)
+                        updated_did_doc["service"] = services
+                    # Update the DID on the ledger
+                    result = await self.update(did, updated_did_doc)
+                    if not result:
+                        raise web.HTTPBadRequest(reason="Failed to update DID on ledger")
+                # Update the local wallet with the new endpoint
+                metadata = {**did_info.metadata}
+                if endpoint_type == EndpointType.ENDPOINT:
+                    metadata[endpoint_type.w3c] = endpoint
+                await wallet.replace_local_did_metadata(did, metadata)
+            except Exception as ex:
+                raise ex
+        return {
+            "did": did,
+            "didDocument": result["didDocument"] | {},
             "didDocumentMetadata": metadata,
         }

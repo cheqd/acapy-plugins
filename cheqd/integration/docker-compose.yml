@@ -36,6 +36,7 @@ services:
       --log-level info
       --debug-webhooks
       --no-ledger
+      --public-invites 
       --plugin cheqd
       --plugin-config plugin-config-integration.yml
     healthcheck:
@@ -68,7 +69,7 @@ services:
         --wallet-name holder
         --wallet-key insecure
         --auto-provision
-        --log-level info
+        --log-level debug
         --debug-webhooks
         --no-ledger
         --plugin cheqd

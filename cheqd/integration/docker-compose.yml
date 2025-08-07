@@ -37,6 +37,7 @@ services:
       --log-level info
       --debug-webhooks
       --no-ledger
+      --public-invites
       --plugin cheqd
       --plugin-config plugin-config-integration.yml
     healthcheck:
@@ -72,6 +73,7 @@ services:
         --log-level info
         --debug-webhooks
         --no-ledger
+        --public-invites
         --plugin cheqd
         --plugin-config plugin-config-integration.yml
     healthcheck:
@@ -88,6 +90,9 @@ services:
     image: universalregistrar/uni-registrar-web:latest
     ports:
       - "9080:9080"
+    environment:
+      - LOGGING_LEVEL_ROOT=WARN
+      - LOGGING_LEVEL_uniregistrar=WARN
     depends_on:
       - driver-did-cheqd
 
